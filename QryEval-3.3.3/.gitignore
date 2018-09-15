@@ -24,3 +24,6 @@
 /ScoreList.class
 /TermVector.class
 /Timer.class
+/RetrievalModelRankedBoolean.class
+/QryIopNear.class
+/QrySopAnd.class

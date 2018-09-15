@@ -86,8 +86,12 @@ public class QryEval {
     RetrievalModel model = null;
     String modelString = parameters.get ("retrievalAlgorithm").toLowerCase();
 
+    // @alicehzheng add a new potential retrieval model "rankedboolean"
     if (modelString.equals("unrankedboolean")) {
       model = new RetrievalModelUnrankedBoolean();
+    }
+    else if(modelString.equals("rankedboolean")){
+    	model = new RetrievalModelRankedBoolean();
     }
     else {
       throw new IllegalArgumentException

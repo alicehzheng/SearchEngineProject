@@ -1,5 +1,6 @@
 /*
  *  Copyright (c) 2018 Carnegie Mellon University.  All Rights Reserved.
+ *  Modified on 09/15/18 by @alicehzheng
  */
 
 import java.io.*;
@@ -83,22 +84,37 @@ public class QryParser {
 
     //  Handle the distance argument to proximity operators such as
     //  #near/n and #window/n.
-
+    // Modified on 09/15/18 by @alicehzheng
+    int delimiter = operatorNameLowerCase.indexOf('/');
+    if(delimiter >= 0){
+    	operatorDistance = Integer.parseInt(operatorNameLowerCase.substring(delimiter+1));
+    	operatorNameLowerCase = operatorNameLowerCase.substring(0, delimiter);
+    }
+    
     //  STUDENT HW1 AND HW2 CODE HERE
     
     //  Create the query operator.
+    // Modified on 09/15/18 by @alicehzheng : added cases for AND and NEAR/N operators
 
     switch (operatorNameLowerCase) {
       case "#or":
-	operator = new QrySopOr ();
-	break;
+          operator = new QrySopOr ();
+          break;
 
       case "#syn":
-	operator = new QryIopSyn ();
-	break;
-
+          operator = new QryIopSyn ();
+          break;
+		
+      case "#and":
+          operator = new QrySopAnd();
+          break;
+          
+      case "#near":
+          operator = new QryIopNear(operatorDistance);
+          break;
+          
       default:
-	syntaxError ("Unknown query operator " + operatorName);
+          syntaxError ("Unknown query operator " + operatorName);
     }
 
     operator.setDisplayName (operatorName);
