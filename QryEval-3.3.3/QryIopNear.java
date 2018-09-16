@@ -15,12 +15,16 @@ public class QryIopNear extends QryIop {
 	
   private int distance;
 
+  QryIopNear(){
+      this.distance = 1; // default distance is 1
+  }
+  
   QryIopNear(int d){
 	  this.distance = d;
   }
   
   /**
-   * This is copied from QryIopSyn!!! Needs Modification!!!
+   *  Added on 09/16/18 by @alicehzheng
    *  Evaluate the query operator; the result is an internal inverted
    *  list that may be accessed via the internal iterators.
    *  @throws IOException Error accessing the Lucene index.
@@ -41,43 +45,90 @@ public class QryIopNear extends QryIop {
 
     while (true) {
 
-      //  Find the minimum next document id.  If there is none, we're done.
-
-      int minDocid = Qry.INVALID_DOCID;
-
-      for (Qry q_i: this.args) {
-        if (q_i.docIteratorHasMatch (null)) {
-          int q_iDocid = q_i.docIteratorGetMatch ();
-          
-          if ((minDocid > q_iDocid) ||
-              (minDocid == Qry.INVALID_DOCID)) {
-            minDocid = q_iDocid;
-          }
-        }
-      }
-
-      if (minDocid == Qry.INVALID_DOCID)
-        break;				// All docids have been processed.  Done.
+      // Advance all doc iterators until they point to the same document
       
-      //  Create a new posting that is the union of the posting lists
-      //  that match the minDocid.  Save it.
-      //  Note:  This implementation assumes that a location will not appear
-      //  in two or more arguments.  #SYN (apple apple) would break it.
+      int maxDocid = Qry.INVALID_DOCID;
+      while(true){
+          // Find the maximum doc id among all the doc ids currently pointed to by different queries in arguments
+          
+          for(Qry q_i: this.args){
+              if(q_i.docIteratorHasMatch(null)){
+                  int q_iDocid = q_i.docIteratorGetMatch();
+                  if((maxDocid == Qry.INVALID_DOCID) || (q_iDocid > maxDocid))
+                      maxDocid = q_iDocid;
+              }
+              else // if one of the argument is exhausted, return
+                  return; 
+          }
+          if(maxDocid == Qry.INVALID_DOCID) // if no maxDocid is found, return
+              return;
+          
+          // Advance all doc iterators to the maxDocid
+          boolean point2same = true;
+          for(Qry q_i: this.args){
+              q_i.docIteratorAdvanceTo(maxDocid);
+              if(!q_i.docIteratorHasMatch(null)) // if one of the argument is exhausted, return
+                  return;
+              if(q_i.docIteratorGetMatch() != maxDocid){
+                  point2same = false;
+                  break;
+              }    
+          }
+          // If all doc iterators are pointing to the same document, break
+          if(point2same) 
+              break;   
+      }
+      
+      
+      //  Create a new posting that marks the right-most location of the NEAR phrase in a document
 
       List<Integer> positions = new ArrayList<Integer>();
-
-      for (Qry q_i: this.args) {
-        if (q_i.docIteratorHasMatch (null) &&
-            (q_i.docIteratorGetMatch () == minDocid)) {
-          Vector<Integer> locations_i =
-            ((QryIop) q_i).docIteratorGetMatchPosting().positions;
-	  positions.addAll (locations_i);
-          q_i.docIteratorAdvancePast (minDocid);
-	}
+      
+      // Find all valid combination in the document
+      
+      boolean allHaveMatch = true;
+      QryIop q_0 = (QryIop)this.args.get(0);
+      
+      while(q_0.locIteratorHasMatch()){
+          int prev_loc = q_0.locIteratorGetMatch();
+          boolean validCombination = true;
+          for(int i = 1; i < this.args.size(); ++i){
+              QryIop q_i = (QryIop)this.args.get(i);
+              q_i.locIteratorAdvancePast(prev_loc);
+              if(!q_i.locIteratorHasMatch()){
+                  allHaveMatch = false;
+                  break;
+              }
+              int cur_loc = q_i.locIteratorGetMatch();
+              if(cur_loc - prev_loc > this.distance){
+                  validCombination = false;
+                  break;
+              }
+              prev_loc = cur_loc;
+          }
+          if(!allHaveMatch)
+              break;
+          // If a valid combination is found, add the right-most location to the posting, and advance all loc iterators
+          if(validCombination){
+              positions.add(prev_loc); 
+              for(int i = 0; i < this.args.size(); ++i){
+                  ((QryIop)this.args.get(i)).locIteratorAdvance();
+              }   
+          }
+          else // Else, only advance q_0's loc iterator
+              q_0.locIteratorAdvance();
       }
-
-      Collections.sort (positions);
-      this.invertedList.appendPosting (minDocid, positions);
+      
+      // If posting is not empty, add it to the inverted list
+      if(!positions.isEmpty())
+          this.invertedList.appendPosting (maxDocid, positions);
+      
+      // Advance all doc iterators past maxDocid
+      for(Qry q_i: args){
+          q_i.docIteratorAdvancePast(maxDocid);
+          if(!q_i.docIteratorHasMatch(null)) // if any query is exhausted, return
+              return;
+      } 
     }
   }
 
