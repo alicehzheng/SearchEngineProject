@@ -1,5 +1,6 @@
 /**
  *  Copyright (c) 2018 Carnegie Mellon University.  All Rights Reserved.
+ *  Modified on 09/15/18 by @alicehzheng
  */
 
 import java.io.*;
@@ -28,8 +29,12 @@ public class QrySopOr extends QrySop {
 
     if (r instanceof RetrievalModelUnrankedBoolean) {
       return this.getScoreUnrankedBoolean (r);
-    } else {
-      throw new IllegalArgumentException
+    } 
+    else if(r instanceof RetrievalModelRankedBoolean){
+        return this.getScoreRankedBoolean(r);
+    }
+    else {
+        throw new IllegalArgumentException
         (r.getClass().getName() + " doesn't support the OR operator.");
     }
   }
@@ -45,6 +50,32 @@ public class QrySopOr extends QrySop {
       return 0.0;
     } else {
       return 1.0;
+    }
+  }
+  
+  /**
+   *  added on 09/15/18 by alicehzheng
+   *  getScore for the RankedBoolean retrieval model (MAX)
+   *  @param r The retrieval model that determines how scores are calculated.
+   *  @return The document score.
+   *  @throws IOException Error accessing the Lucene index
+   */
+  private double getScoreRankedBoolean (RetrievalModel r) throws IOException {
+    if (! this.docIteratorHasMatchCache()) {
+      return 0.0;
+    } else {
+      int docidMatched = this.docIteratorGetMatch();
+      double maxScore = 0.0;
+      for (int i=1; i<this.args.size(); i++) {
+          Qry q_i = this.args.get(i);
+          if(q_i.docIteratorHasMatch(r) && q_i.docIteratorGetMatch() == docidMatched){
+              double score_i = ((QrySop) q_i).getScore(r);
+              if (score_i > maxScore)
+              maxScore = score_i;
+          }
+      }
+      return maxScore;
+        
     }
   }
 

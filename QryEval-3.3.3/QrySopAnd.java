@@ -6,7 +6,6 @@ import java.io.*;
 
 /**
  *  The AND operator for all retrieval models.
- *  this is the same as OR! needs to be modified!
  */
 public class QrySopAnd extends QrySop {
 
@@ -16,7 +15,7 @@ public class QrySopAnd extends QrySop {
    *  @return True if the query matches, otherwise false.
    */
   public boolean docIteratorHasMatch (RetrievalModel r) {
-    return this.docIteratorHasMatchMin (r);
+    return this.docIteratorHasMatchAll (r);
   }
 
   /**
@@ -29,7 +28,10 @@ public class QrySopAnd extends QrySop {
 
     if (r instanceof RetrievalModelUnrankedBoolean) {
       return this.getScoreUnrankedBoolean (r);
-    } else {
+    } else if(r instanceof RetrievalModelRankedBoolean){
+      return this.getScoreRankedBoolean(r);
+    }
+    else{
       throw new IllegalArgumentException
         (r.getClass().getName() + " doesn't support the OR operator.");
     }
@@ -46,6 +48,34 @@ public class QrySopAnd extends QrySop {
       return 0.0;
     } else {
       return 1.0;
+    }
+  }
+  
+  /**
+   *  getScore for the RankedBoolean retrieval model (MIN)
+   *  @param r The retrieval model that determines how scores are calculated.
+   *  @return The document score.
+   *  @throws IOException Error accessing the Lucene index
+   */
+  private double getScoreRankedBoolean (RetrievalModel r) throws IOException {
+    if (! this.docIteratorHasMatchCache()) {
+      return 0.0;
+    } else {
+      int docidMatched = this.docIteratorGetMatch();
+      double minScore = Double.MAX_VALUE;
+      for (int i=1; i<this.args.size(); i++) {
+          Qry q_i = this.args.get(i);
+          /** throw exception
+          if(!(q_i instanceof QrySop) ){
+              
+          }
+          **/
+          double score_i = ((QrySop) q_i).getScore(r);
+          if (score_i < minScore)
+              minScore = score_i;
+      }
+      return minScore;
+      
     }
   }
 

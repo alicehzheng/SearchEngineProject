@@ -18,6 +18,7 @@ public class QryIopNear extends QryIop {
   QryIopNear(int d){
 	  this.distance = d;
   }
+  
   /**
    * This is copied from QryIopSyn!!! Needs Modification!!!
    *  Evaluate the query operator; the result is an internal inverted
