@@ -67,9 +67,11 @@ public class QrySopAnd extends QrySop {
           Qry q_i = this.args.get(i);
           // QrySopAnd can only have QrySop operators as arguments
           // Note: may need to be modified to throw exception
-          double score_i = ((QrySop) q_i).getScore(r);
-          if (score_i < minScore)
-              minScore = score_i;
+          if(q_i.docIteratorHasMatch(r) && q_i.docIteratorGetMatch() == docidMatched){
+              double score_i = ((QrySop) q_i).getScore(r);
+              if (score_i < minScore)
+                  minScore = score_i;
+          }
       }
       return minScore;
       

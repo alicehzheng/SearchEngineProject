@@ -68,10 +68,12 @@ public class QrySopOr extends QrySop {
       double maxScore = 0.0;
       for (int i=0; i<this.args.size(); i++) {
           Qry q_i = this.args.get(i);
+          // QrySopOr can only have QrySop operators as arguments
+          // Note: may need to be modified to throw exception
           if(q_i.docIteratorHasMatch(r) && q_i.docIteratorGetMatch() == docidMatched){
               double score_i = ((QrySop) q_i).getScore(r);
               if (score_i > maxScore)
-              maxScore = score_i;
+                  maxScore = score_i;
           }
       }
       return maxScore;

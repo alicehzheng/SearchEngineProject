@@ -72,7 +72,7 @@ public class QrySopScore extends QrySop {
         return 0.0;
     } 
     else {
-        return this.getArg(0).getTfinDoc();
+        return this.getArg(0).getTfinDoc(); // calculate score as the term frequency associated with the matched document
     }
   }
 
