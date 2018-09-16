@@ -1,5 +1,6 @@
 /**
  *  Copyright (c) 2018 Carnegie Mellon University.  All Rights Reserved.
+ *  Modified on 09/16/18 by @alichehzheng
  */
 
 import java.io.*;
@@ -25,6 +26,7 @@ public class QrySopScore extends QrySop {
   }
 
   /**
+   *  Modified on 09/16/18 by @alicehzheng : added Ranked Boolean
    *  Get a score for the document that docIteratorHasMatch matched.
    *  @param r The retrieval model that determines how scores are calculated.
    *  @return The document score.
@@ -34,7 +36,11 @@ public class QrySopScore extends QrySop {
 
     if (r instanceof RetrievalModelUnrankedBoolean) {
       return this.getScoreUnrankedBoolean (r);
-    } else {
+    } 
+    else if(r instanceof RetrievalModelRankedBoolean){
+        return this.getScoreRankedBoolean(r);
+    }
+    else {
       throw new IllegalArgumentException
         (r.getClass().getName() + " doesn't support the SCORE operator.");
     }
@@ -51,6 +57,22 @@ public class QrySopScore extends QrySop {
       return 0.0;
     } else {
       return 1.0;
+    }
+  }
+  
+  /**
+   *  added on 09/16/18 by @alichehzneg
+   *  getScore for the Ranked retrieval model.
+   *  @param r The retrieval model that determines how scores are calculated.
+   *  @return The document score.
+   *  @throws IOException Error accessing the Lucene index
+   */
+  public double getScoreRankedBoolean (RetrievalModel r) throws IOException {
+    if (! this.docIteratorHasMatchCache()) {
+        return 0.0;
+    } 
+    else {
+        return this.getArg(0).getTfinDoc(); // calculate score as the term frequency associated with the matched document
     }
   }
 

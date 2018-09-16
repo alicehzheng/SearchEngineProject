@@ -1,5 +1,6 @@
 /**
  *  Copyright (c) 2018 Carnegie Mellon University.  All Rights Reserved.
+ *  Modified by @alichehzheng
  */
 import java.io.*;
 import java.util.*;
@@ -149,6 +150,21 @@ public abstract class QryIop extends Qry {
   public int getDf () {
     return this.invertedList.df;
   }
+  
+  /**
+   *  Added on 09/16/18 by @alicehzheng
+   *  Get the term frequency associated with this query in the document specified by docIteratorIndex.
+   *  Return -1 if the docIteratorIndex is invalid
+   *  It is an error to call this method before the object's initialize method is called.
+   *  @return The document frequency (df).
+   */
+  public int getTfinDoc () {
+    if(this.docIteratorIndex >= 0 && this.docIteratorIndex < this.invertedList.df)
+        return this.invertedList.getTf(docIteratorIndex);
+    else
+        return -1;
+  }
+  
 
   /**
    *  Get the field associated with this query operator.

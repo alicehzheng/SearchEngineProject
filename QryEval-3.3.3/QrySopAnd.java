@@ -1,14 +1,13 @@
 /**
- *  Copyright (c) 2018 Carnegie Mellon University.  All Rights Reserved.
- *  Modified on 09/15/18 by @alicehzheng
+ *  Created on 09/15/18 by @alicehzheng
  */
 
 import java.io.*;
 
 /**
- *  The OR operator for all retrieval models.
+ *  The AND operator for all retrieval models.
  */
-public class QrySopOr extends QrySop {
+public class QrySopAnd extends QrySop {
 
   /**
    *  Indicates whether the query has a match.
@@ -16,7 +15,7 @@ public class QrySopOr extends QrySop {
    *  @return True if the query matches, otherwise false.
    */
   public boolean docIteratorHasMatch (RetrievalModel r) {
-    return this.docIteratorHasMatchMin (r);
+    return this.docIteratorHasMatchAll (r);
   }
 
   /**
@@ -29,12 +28,11 @@ public class QrySopOr extends QrySop {
 
     if (r instanceof RetrievalModelUnrankedBoolean) {
       return this.getScoreUnrankedBoolean (r);
-    } 
-    else if(r instanceof RetrievalModelRankedBoolean){
-        return this.getScoreRankedBoolean(r);
+    } else if(r instanceof RetrievalModelRankedBoolean){
+      return this.getScoreRankedBoolean(r);
     }
-    else {
-        throw new IllegalArgumentException
+    else{
+      throw new IllegalArgumentException
         (r.getClass().getName() + " doesn't support the OR operator.");
     }
   }
@@ -54,8 +52,7 @@ public class QrySopOr extends QrySop {
   }
   
   /**
-   *  added on 09/15/18 by alicehzheng
-   *  getScore for the RankedBoolean retrieval model (MAX)
+   *  getScore for the RankedBoolean retrieval model (MIN)
    *  @param r The retrieval model that determines how scores are calculated.
    *  @return The document score.
    *  @throws IOException Error accessing the Lucene index
@@ -65,19 +62,19 @@ public class QrySopOr extends QrySop {
       return 0.0;
     } else {
       int docidMatched = this.docIteratorGetMatch();
-      double maxScore = 0.0;
+      double minScore = Double.MAX_VALUE;
       for (int i=0; i<this.args.size(); i++) {
           Qry q_i = this.args.get(i);
-          // QrySopOr can only have QrySop operators as arguments
+          // QrySopAnd can only have QrySop operators as arguments
           // Note: may need to be modified to throw exception
           if(q_i.docIteratorHasMatch(r) && q_i.docIteratorGetMatch() == docidMatched){
               double score_i = ((QrySop) q_i).getScore(r);
-              if (score_i > maxScore)
-                  maxScore = score_i;
+              if (score_i < minScore)
+                  minScore = score_i;
           }
       }
-      return maxScore;
-        
+      return minScore;
+      
     }
   }
 
