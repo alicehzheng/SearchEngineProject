@@ -66,7 +66,7 @@ public class QrySopOr extends QrySop {
     } else {
       int docidMatched = this.docIteratorGetMatch();
       double maxScore = 0.0;
-      for (int i=1; i<this.args.size(); i++) {
+      for (int i=0; i<this.args.size(); i++) {
           Qry q_i = this.args.get(i);
           if(q_i.docIteratorHasMatch(r) && q_i.docIteratorGetMatch() == docidMatched){
               double score_i = ((QrySop) q_i).getScore(r);
