@@ -1,5 +1,6 @@
 /**
  *  Copyright (c) 2018 Carnegie Mellon University.  All Rights Reserved.
+ *  Modified on 09/16/18 by @alicehzheng
  */
 import java.io.*;
 import java.util.*;
@@ -104,12 +105,40 @@ public class ScoreList {
     }
   }
 
+  /*
+   *  Added on 09/16/18 by @alicehzheng
+   *  Compare two ScoreListEntry objects.  Sort by score, then
+   *  external docid.
+   */
+  public class ScoreListExternalComparator implements Comparator<ScoreListEntry> {
+
+    @Override
+    public int compare(ScoreListEntry s1, ScoreListEntry s2) {
+      if (s1.score > s2.score)
+          return -1;
+      else if (s1.score < s2.score)
+          return 1;
+      else if ((s1.externalId).compareTo(s2.externalId) > 0) // if s1's externalId is larger than s2's externalId, s2 goes first
+        return 1;
+      else
+        return -1;
+    }
+  }
   /**
-   *  Sort the list by score and external document id.
+   *  Sort the list by score and internal document id.
    */
   public void sort () {
     Collections.sort(this.scores, new ScoreListComparator());
   }
+  
+  /**
+   *  added on 09/16/18 by @alichehzheng
+   *  Sort the list by score and external document id.
+   */
+  public void sortExternal () {
+    Collections.sort(this.scores, new ScoreListExternalComparator());
+  }
+  
   
   /**
    * Reduce the score list to the first num results to save on RAM.
