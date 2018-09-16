@@ -217,6 +217,7 @@ public class QryEval {
       ex.printStackTrace();
     } finally {
       input.close();
+      output.close();
     }
   }
 
@@ -238,17 +239,17 @@ public class QryEval {
    * @throws IOException Error accessing the Lucene index.
    */
   static void printResults(String queryId, ScoreList result, BufferedWriter outputWriter, int outputLen) throws IOException {
-      
+    String outputMsg = queryId + " Q0 dummy 1 0 run-1";
     if (result.size() < 1) {
-        System.out.println(queryId + " Q0 dummy 1 0 run-1");
-        outputWriter.write(queryId + " Q0 dummy 1 0 run-1\n");
+        System.out.println(outputMsg);
+        outputWriter.write(outputMsg + "\n");
     } 
     else {
         for (int i = 0; i < result.size() && i < outputLen; i++) {
-            System.out.println(queryId + " Q0 " + Idx.getExternalDocid(result.getDocid(i)) + " " 
-                    + (i+1) + " " + result.getDocidScore(i) + " run-1");
-            outputWriter.write(queryId + " Q0 " + Idx.getExternalDocid(result.getDocid(i)) + " " 
-                    + (i+1) + " " + result.getDocidScore(i) + " run-1\n");
+            outputMsg = queryId + " Q0 " + Idx.getExternalDocid(result.getDocid(i)) + " " 
+                    + (i+1) + " " + result.getDocidScore(i) + " run-1";
+            System.out.println(outputMsg);
+            outputWriter.write(outputMsg + "\n");
         }
     }
   }
