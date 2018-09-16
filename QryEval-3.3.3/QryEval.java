@@ -64,9 +64,10 @@ public class QryEval {
     Idx.open (parameters.get ("indexPath"));
     RetrievalModel model = initializeRetrievalModel (parameters);
 
+    // Modified on 09/16/18 by @alicehzheng: added two more parameters
     //  Perform experiments.
     
-    processQueryFile(parameters.get("queryFilePath"), model);
+    processQueryFile(parameters.get("queryFilePath"), parameters.get("trecEvalOutputPath"), Integer.parseInt(parameters.get("trecEvalOutputLength")),model);
 
     //  Clean up.
     
@@ -121,6 +122,7 @@ public class QryEval {
   }
 
   /**
+   * Modified on 09/16/18 by @alicehzheng: sort the score list first using score (descending), then using external id (ascending)
    * Process one query.
    * @param qString A string that contains a query.
    * @param model The retrieval model determines how matching and scoring is done.
@@ -153,28 +155,36 @@ public class QryEval {
           q.docIteratorAdvancePast (docid);
         }
       }
-
+      // Added on 09/16/18 by @alicehzheng
+      // sort the score list first using score (descending), then using external id (ascending)
+      r.sortExternal(); 
+      
       return r;
     } else
       return null;
   }
 
   /**
+   *  Modified on 09/16/18 by @alicehzheng: Added outputing result
    *  Process the query file.
    *  @param queryFilePath
+   *  @param outputFilePath // added on 09/16/18
+   *  @param outputLen      // added on 09/16/18
    *  @param model
    *  @throws IOException Error accessing the Lucene index.
    */
-  static void processQueryFile(String queryFilePath,
-                               RetrievalModel model)
+  static void processQueryFile(String queryFilePath, String outputFilePath, int outputLen, RetrievalModel model)
       throws IOException {
 
     BufferedReader input = null;
+    BufferedWriter output = null;
 
     try {
       String qLine = null;
 
       input = new BufferedReader(new FileReader(queryFilePath));
+      
+      output = new BufferedWriter(new FileWriter(outputFilePath));
 
       //  Each pass of the loop processes one query.
 
@@ -196,9 +206,10 @@ public class QryEval {
         ScoreList r = null;
 
         r = processQuery(query, model);
-
+        
+        // Modified on 09/16/18 by @alicehzheng
         if (r != null) {
-          printResults(qid, r);
+          printResults(qid, r,output, outputLen);
           System.out.println();
         }
       }
@@ -210,6 +221,8 @@ public class QryEval {
   }
 
   /**
+   * Modified on 09/16/18 by @alicehzheng: modified output format; added functionality to write output to file
+   * 
    * Print the query results.
    * 
    * THIS IS NOT THE CORRECT OUTPUT FORMAT. YOU MUST CHANGE THIS METHOD SO
@@ -217,22 +230,26 @@ public class QryEval {
    * 
    * QueryID Q0 DocID Rank Score RunID
    * 
-   * @param queryName
-   *          Original query.
+   * @param queryId
    * @param result
    *          A list of document ids and scores
+   * @param outputWriter
+   * @param outputLen
    * @throws IOException Error accessing the Lucene index.
    */
-  static void printResults(String queryName, ScoreList result) throws IOException {
-
-    System.out.println(queryName + ":  ");
+  static void printResults(String queryId, ScoreList result, BufferedWriter outputWriter, int outputLen) throws IOException {
+      
     if (result.size() < 1) {
-      System.out.println("\tNo results.");
-    } else {
-      for (int i = 0; i < result.size(); i++) {
-        System.out.println("\t" + i + ":  " + Idx.getExternalDocid(result.getDocid(i)) + ", "
-            + result.getDocidScore(i));
-      }
+        System.out.println(queryId + " Q0 dummy 1 0 run-1");
+        outputWriter.write(queryId + " Q0 dummy 1 0 run-1\n");
+    } 
+    else {
+        for (int i = 0; i < result.size() && i < outputLen; i++) {
+            System.out.println(queryId + " Q0 " + Idx.getExternalDocid(result.getDocid(i)) + " " 
+                    + (i+1) + " " + result.getDocidScore(i) + " run-1");
+            outputWriter.write(queryId + " Q0 " + Idx.getExternalDocid(result.getDocid(i)) + " " 
+                    + (i+1) + " " + result.getDocidScore(i) + " run-1\n");
+        }
     }
   }
 
@@ -268,6 +285,7 @@ public class QryEval {
     if (! (parameters.containsKey ("indexPath") &&
            parameters.containsKey ("queryFilePath") &&
            parameters.containsKey ("trecEvalOutputPath") &&
+           parameters.containsKey("trecEvalOutputLength") && 
            parameters.containsKey ("retrievalAlgorithm"))) {
       throw new IllegalArgumentException
         ("Required parameters were missing from the parameter file.");
