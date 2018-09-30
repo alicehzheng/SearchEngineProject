@@ -96,7 +96,14 @@ public class QryEval {
     	model = new RetrievalModelRankedBoolean();
     }
     else if(modelString.equals("bm25")){
-        model = new RetrievalModelBM25();
+        if(!(parameters.containsKey ("BM25:k_1") && parameters.containsKey ("BM25:k_3") && parameters.containsKey ("BM25:b")))
+            throw new IllegalArgumentException("Missing Parameters for BM25 Retrieval Model ");
+        double k1 = Double.valueOf(parameters.get("BM25:k_1"));
+        double k3 = Double.valueOf(parameters.get("BM25:k_3"));
+        double b =  Double.valueOf(parameters.get("BM25:b"));
+        if(k1 < 0 || k3 < 0 || k3 > 0 || b < 0 || b > 1 )
+            throw new IllegalArgumentException("Illegal Parameters for BM25 Retrieval Model ");
+        model = new RetrievalModelBM25(k1,k3,b);
     }
     else if(modelString.equals("indri")){
         model = new RetrievalModelIndri();

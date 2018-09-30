@@ -5,6 +5,7 @@
 
 import java.io.*;
 import java.lang.IllegalArgumentException;
+import java.lang.Math;
 
 /**
  *  The SCORE operator for all retrieval models.
@@ -27,6 +28,7 @@ public class QrySopScore extends QrySop {
 
   /**
    *  Modified on 09/16/18 by @alicehzheng : added Ranked Boolean
+   *  Modified on 09/19/18 by @alicehzheng: added BM25
    *  Get a score for the document that docIteratorHasMatch matched.
    *  @param r The retrieval model that determines how scores are calculated.
    *  @return The document score.
@@ -39,6 +41,9 @@ public class QrySopScore extends QrySop {
     } 
     else if(r instanceof RetrievalModelRankedBoolean){
         return this.getScoreRankedBoolean(r);
+    }
+    else if(r instanceof RetrievalModelBM25){
+        return this.getScoreBM25(r);
     }
     else {
       throw new IllegalArgumentException
@@ -73,6 +78,40 @@ public class QrySopScore extends QrySop {
     } 
     else {
         return this.getArg(0).getTfinDoc(); // calculate score as the term frequency associated with the matched document
+    }
+  }
+  
+  /**
+   *  added on 09/29/18 by @alichehzneg
+   *  getScore for the BM25 model.
+   *  @param r The retrieval model that determines how scores are calculated.
+   *  @return The document score.
+   *  @throws IOException Error accessing the Lucene index
+   */
+  public double getScoreBM25 (RetrievalModel r) throws IOException {
+    if (! this.docIteratorHasMatchCache()) {
+        return 0.0;
+    } 
+    else {
+        RetrievalModelBM25 model = (RetrievalModelBM25) r;
+        QryIop arg = (QryIop)this.getArg(0);
+        int docidMatched = this.docIteratorGetMatch();
+        double score = 0.0;
+        double idfWeight = 0.0;
+        double tfWeight = 0.0;
+        long N = Idx.getNumDocs(); // total number of documents
+        int df = arg.getDf(); // document frequency of this term
+        double avg_len = Idx.getSumOfFieldLengths(arg.getField()) / (double) Idx.getDocCount (arg.getField()); // average document length of specified field
+        int doc_len = Idx.getFieldLength(arg.getField(), docidMatched); // document length of matched document in specified field
+        int tf = arg.getTfinDoc(); // term frequency
+        idfWeight = Math.log((N - df + 0.5) / (double) (df + 0.5));
+        if(idfWeight < 0)
+            idfWeight = 0;
+        double k1 = model.k1;
+        double b = model.b;
+        tfWeight = tf / (double) (tf + k1 * ((1-b) + b * doc_len / (double) avg_len));
+        score = idfWeight * tfWeight;
+        return score;
     }
   }
 
