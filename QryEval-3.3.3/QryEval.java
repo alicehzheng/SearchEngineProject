@@ -76,6 +76,7 @@ public class QryEval {
   }
 
   /**
+   *  Modified on 09/29/18 by @alicehzheng: adding BM25 and Indri
    *  Allocate the retrieval model and initialize it using parameters
    *  from the parameter file.
    *  @return The initialized retrieval model
@@ -87,12 +88,18 @@ public class QryEval {
     RetrievalModel model = null;
     String modelString = parameters.get ("retrievalAlgorithm").toLowerCase();
 
-    // @alicehzheng add a new potential retrieval model "rankedboolean"
+
     if (modelString.equals("unrankedboolean")) {
       model = new RetrievalModelUnrankedBoolean();
     }
     else if(modelString.equals("rankedboolean")){
     	model = new RetrievalModelRankedBoolean();
+    }
+    else if(modelString.equals("bm25")){
+        model = new RetrievalModelBM25();
+    }
+    else if(modelString.equals("indri")){
+        model = new RetrievalModelIndri();
     }
     else {
       throw new IllegalArgumentException

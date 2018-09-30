@@ -28,3 +28,5 @@
 /QryIopNear.class
 /QrySopAnd.class
 /ScoreList$ScoreListExternalComparator.class
+/RetrievalModelBM25.class
+/RetrievalModelIndri.class
