@@ -26,7 +26,7 @@ public abstract class QrySop extends Qry {
 
   /**
    *  Added on 09/30/18 by @alicehzheng
-   *  Get a default score for the document that docIteratorHasMatch matched.
+   *  Get a default score for the document denoted by docid
    *  @param r The retrieval model that determines how scores are calculated.
    *  @param docid The document whose default score is going to be calculated
    *  @return The document score.

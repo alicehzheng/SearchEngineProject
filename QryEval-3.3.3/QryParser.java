@@ -111,10 +111,16 @@ public class QryParser {
           operator = new QrySopSum();
           break;
       case "#near":
-          operator = new QryIopNear(operatorDistance);
+          if (operatorDistance == 0) // use default operator distance
+              operator = new QryIopNear();
+          else
+              operator = new QryIopNear(operatorDistance);
           break;
       case "#window":
-          operator = new QryIopWindow(operatorDistance);
+          if(operatorDistance == 0) // use default operator distance
+              operator = new QryIopWindow();
+          else
+              operator = new QryIopWindow(operatorDistance);
           break;
       case "#wand":
           operator = new QrySopWand();

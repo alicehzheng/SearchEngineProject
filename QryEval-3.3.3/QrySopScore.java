@@ -18,14 +18,18 @@ public class QrySopScore extends QrySop {
    *  Some retrieval models have these, some don't.
    */
   
-  /**
-   *  Indicates whether the query has a match.
-   *  @param r The retrieval model that determines what is a match
-   *  @return True if the query matches, otherwise false.
-   */
-  public boolean docIteratorHasMatch (RetrievalModel r) {
-    return this.docIteratorHasMatchFirst (r);
-  }
+    /**
+     * Modified on 09/30/18 by @alicehzheng
+     *  Indicates whether the query has a match.
+     *  @param r The retrieval model that determines what is a match
+     *  @return True if the query matches, otherwise false.
+     */
+    public boolean docIteratorHasMatch (RetrievalModel r) {
+        if(r instanceof RetrievalModelIndri)
+            return this.docIteratorHasMatchMin(r); // score operator for indri calculate scores for docs that have at least one query term
+        else
+            return this.docIteratorHasMatchAll (r);
+    }
 
   /**
    *  Modified on 09/16/18 by @alicehzheng : added Ranked Boolean

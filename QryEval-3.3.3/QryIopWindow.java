@@ -10,13 +10,13 @@ import java.util.*;
 public class QryIopWindow extends QryIop {
     
   /**
-   *  The Distance n denoted in "#Near/n"
+   *  The Distance n denoted in "#Window/n"
   */    
     
   private int distance;
 
   QryIopWindow(){
-      this.distance = 1; // default distance is 1
+      this.distance = 4; // default distance is 4
   }
   
   QryIopWindow(int d){
@@ -103,7 +103,7 @@ public class QryIopWindow extends QryIop {
                   max_loc = cur_loc;
           }
           // If a valid combination is found, add the right-most location to the posting, and advance all loc iterators
-          if(max_loc - min_loc < distance){
+          if((max_loc - min_loc) < distance){
               positions.add(max_loc); 
               for(int i = 0; i < this.args.size(); ++i){
                   QryIop q_i = (QryIop)this.args.get(i);
