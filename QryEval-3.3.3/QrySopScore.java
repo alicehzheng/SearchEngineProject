@@ -25,12 +25,11 @@ public class QrySopScore extends QrySop {
      *  @return True if the query matches, otherwise false.
      */
     public boolean docIteratorHasMatch (RetrievalModel r) {
-        /**
+        
         if(r instanceof RetrievalModelIndri)
             return this.docIteratorHasMatchMin(r); // score operator for indri calculate scores for docs that have at least one query term
         else
-        **/
-        return this.docIteratorHasMatchAll (r);
+            return this.docIteratorHasMatchAll (r);
     }
 
   /**

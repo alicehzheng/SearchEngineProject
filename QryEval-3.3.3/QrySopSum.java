@@ -78,6 +78,8 @@ public class QrySopSum extends QrySop {
           
         }
   }
+  
+
 
  
 

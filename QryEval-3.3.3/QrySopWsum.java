@@ -121,7 +121,8 @@ public class QrySopWsum extends QrySop {
             for(int i = 0; i < w_len; i++)
                 w_sum += this.arg_weights.get(i);
             double w_i = this.arg_weights.get(0);
-            double score = (w_i / w_sum) * (double)((QrySop) q_i).getDefaultScore(r,docid);
+            double score = 0.0;
+            score += (w_i / w_sum) * (double)((QrySop) q_i).getDefaultScore(r,docid);
             for(int i = 1; i < q_len; i++){
                 q_i = this.args.get(i);
                 score = score + (w_i / w_sum) * (double)((QrySop) q_i).getDefaultScore(r,docid);
@@ -130,18 +131,6 @@ public class QrySopWsum extends QrySop {
         }
       }
 
-  /**
-   *  Initialize the query operator (and its arguments), including any
-   *  internal iterators.  If the query operator is of type QryIop, it
-   *  is fully evaluated, and the results are stored in an internal
-   *  inverted list that may be accessed via the internal iterator.
-   *  @param r A retrieval model that guides initialization
-   *  @throws IOException Error accessing the Lucene index.
-   */
-  public void initialize (RetrievalModel r) throws IOException {
 
-    Qry q = this.args.get (0);
-    q.initialize (r);
-  }
 
 }

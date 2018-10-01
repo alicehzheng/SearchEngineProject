@@ -126,4 +126,5 @@ public class QrySopWand extends QrySop {
       return score;
     }
   }
+
 }
