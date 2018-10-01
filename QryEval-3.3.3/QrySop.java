@@ -1,5 +1,6 @@
 /** 
  *  Copyright (c) 2018 Carnegie Mellon University.  All Rights Reserved.
+ *  Modified on 09/30/2018 @alicehzheng
  */
 import java.io.*;
 
@@ -23,6 +24,17 @@ public abstract class QrySop extends Qry {
   public abstract double getScore (RetrievalModel r)
     throws IOException;
 
+  /**
+   *  Added on 09/30/18 by @alicehzheng
+   *  Get a default score for the document denoted by docid
+   *  @param r The retrieval model that determines how scores are calculated.
+   *  @param docid The document whose default score is going to be calculated
+   *  @return The document score.
+   *  @throws IOException Error accessing the Lucene index
+   */
+  public abstract double getDefaultScore (RetrievalModel r, long docid)
+    throws IOException;
+  
   /**
    *  Initialize the query operator (and its arguments), including any
    *  internal iterators.  If the query operator is of type QryIop, it

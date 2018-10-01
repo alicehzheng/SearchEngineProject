@@ -76,6 +76,7 @@ public class QryEval {
   }
 
   /**
+   *  Modified on 09/29/18 by @alicehzheng: adding BM25 and Indri
    *  Allocate the retrieval model and initialize it using parameters
    *  from the parameter file.
    *  @return The initialized retrieval model
@@ -87,12 +88,33 @@ public class QryEval {
     RetrievalModel model = null;
     String modelString = parameters.get ("retrievalAlgorithm").toLowerCase();
 
-    // @alicehzheng add a new potential retrieval model "rankedboolean"
+
     if (modelString.equals("unrankedboolean")) {
       model = new RetrievalModelUnrankedBoolean();
     }
     else if(modelString.equals("rankedboolean")){
     	model = new RetrievalModelRankedBoolean();
+    }
+    else if(modelString.equals("bm25")){
+        if(!(parameters.containsKey ("BM25:k_1") && parameters.containsKey ("BM25:k_3") && parameters.containsKey ("BM25:b")))
+            throw new IllegalArgumentException("Missing Parameters for BM25 Retrieval Model ");
+        double k1 = Double.valueOf(parameters.get("BM25:k_1"));
+        double k3 = Double.valueOf(parameters.get("BM25:k_3"));
+        double b =  Double.valueOf(parameters.get("BM25:b"));
+        if(k1 < 0 || k3 < 0 || b < 0 || b > 1 )
+            throw new IllegalArgumentException("Illegal Parameters for BM25 Retrieval Model ");
+        model = new RetrievalModelBM25(k1,k3,b);
+        // debug info
+        System.out.println("Parameters of BM25 are k1:"+ k1 + " k3:" + k3 + " b:"+ b);
+    }
+    else if(modelString.equals("indri")){
+        if(!(parameters.containsKey("Indri:mu") && parameters.containsKey("Indri:lambda")))
+            throw new IllegalArgumentException("Missing Parameters for Indri Retrieval Model "); 
+        int mu = Integer.valueOf(parameters.get("Indri:mu"));
+        double lambda = Double.valueOf(parameters.get("Indri:lambda"));
+        if(mu < 0 || lambda < 0 || lambda > 1)
+            throw new IllegalArgumentException("Illegal Parameters for Indri Retrieval Model ");    
+        model = new RetrievalModelIndri(mu,lambda);
     }
     else {
       throw new IllegalArgumentException
