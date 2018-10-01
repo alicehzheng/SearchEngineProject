@@ -121,6 +121,7 @@ public class QrySopWand extends QrySop {
         double score = Math.pow((double)((QrySop) q_i).getDefaultScore(r,docid), w_i / w_sum);
         for(int i = 1; i < q_len; i++){
             q_i = this.args.get(i);
+            w_i = this.arg_weights.get(i);
             score *= Math.pow((double)((QrySop) q_i).getDefaultScore(r,docid), w_i / w_sum);
         }
       return score;

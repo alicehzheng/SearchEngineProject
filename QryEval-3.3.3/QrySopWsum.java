@@ -128,6 +128,7 @@ public class QrySopWsum extends QrySop {
             score += (w_i / w_sum) * (double)((QrySop) q_i).getDefaultScore(r,docid);
             for(int i = 1; i < q_len; i++){
                 q_i = this.args.get(i);
+                w_i = this.arg_weights.get(i);
                 score = score + (w_i / w_sum) * (double)((QrySop) q_i).getDefaultScore(r,docid);
             }
           return score;
