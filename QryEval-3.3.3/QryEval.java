@@ -106,7 +106,13 @@ public class QryEval {
         model = new RetrievalModelBM25(k1,k3,b);
     }
     else if(modelString.equals("indri")){
-        model = new RetrievalModelIndri();
+        if(!(parameters.containsKey("Indri:mu") && parameters.containsKey("Indri:lambda")))
+            throw new IllegalArgumentException("Missing Parameters for Indri Retrieval Model "); 
+        int mu = Integer.valueOf(parameters.get("Indri:mu"));
+        double lambda = Double.valueOf(parameters.get("Indri:lambda"));
+        if(mu < 0 || lambda < 0 || lambda > 1)
+            throw new IllegalArgumentException("Illegal Parameters for Indri Retrieval Model ");    
+        model = new RetrievalModelIndri(mu,lambda);
     }
     else {
       throw new IllegalArgumentException

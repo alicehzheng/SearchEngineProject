@@ -40,6 +40,16 @@ public class QrySopOr extends QrySop {
   }
   
   /**
+   *  Added on 09/30/18 by @alicehzheng
+   *  Get a default score for a documnet denoted by docid
+   *  @param r The retrieval model that determines how scores are calculated.
+   *  @return The document score.
+   *  @throws IOException Error accessing the Lucene index
+   */
+  public double getDefaultScore (RetrievalModel r, long docid) throws IOException {
+    return 0.0;
+  }
+  /**
    *  getScore for the UnrankedBoolean retrieval model.
    *  @param r The retrieval model that determines how scores are calculated.
    *  @return The document score.

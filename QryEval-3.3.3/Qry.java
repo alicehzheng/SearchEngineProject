@@ -1,5 +1,6 @@
 /** 
  *  Copyright (c) 2018 Carnegie Mellon University.  All Rights Reserved.
+ *  Modified on 09/30/18 by @alicehzheng
  */
 import java.io.*;
 import java.util.*;
@@ -84,6 +85,14 @@ public abstract class Qry {
    */
   protected ArrayList<Qry> args = new ArrayList<Qry>();
 
+  /**
+   *  Created on 09/30/18 by @alicehzheng
+   *  The arguments' weights to this query operator.
+   *  only applies to weighted operator such as WAND and WSUM
+   *  e.g. #WSUM (0.4 blue 0.6 skies) 
+   */
+  protected ArrayList<Double> arg_weights = new ArrayList<Double>();
+  
   /**
    *  The string to use when the query is displayed.  Some query
    *  operators (e.g., QrySopAnd) may be represented by more than
@@ -180,6 +189,49 @@ public abstract class Qry {
        this.getClass().getName());
   }
 
+  /**
+   *  Created on 09/30/18 @alicehzheng: appendArg for weighted operators
+   *  Append an argument as well as its corresponding weight to the list of query operator arguments.  
+   *  @param q The query argument (query operator) to append.
+   *  @throws IllegalArgumentException q is an invalid argument
+   */
+  public void appendArg(Qry q, Double weight) throws IllegalArgumentException {
+    
+    // only weighted operators can have weights
+    if (!(this instanceof QrySopWand || this instanceof QrySopWsum)) {
+      throw new IllegalArgumentException
+        ("The Non-weighted Operators Have No Weights");
+    }
+
+    //  Check whether it is necessary to insert an implied SCORE
+    //  operator between a QrySop operator and a QryIop argument.
+
+    if ((this instanceof QrySop) && (q instanceof QryIop)) {
+      Qry impliedOp = new QrySopScore ();
+      impliedOp.setDisplayName ("#SCORE");
+      impliedOp.appendArg (q);
+      
+      this.arg_weights.add(weight); // add weight
+      this.args.add (impliedOp); // add implied operator
+      return;
+    }
+
+
+    //  QrySop operators and their arguments must be of the same type.
+
+    if ((this instanceof QrySop) && (q instanceof QrySop)) {
+      this.arg_weights.add(weight);
+      this.args.add(q);
+      return;
+    }
+
+    throw new IllegalArgumentException
+      ("Objects of type " + 
+       q.getClass().getName() +
+       " cannot be an argument to a query operator of type " +
+       this.getClass().getName());
+  }
+  
   /**
    *  Advance the internal document iterator beyond the specified
    *  document.
@@ -371,6 +423,15 @@ public abstract class Qry {
    */
   public QryIop getArg (int i) {
     return ((QryIop) this.args.get(i));
+  }
+  
+  /**
+   *  Get the i'th query argument's corresponding weight.  
+   *  @param i The index of the query argument whose weight is to be return.
+   *  @return The query argument's weight
+   */
+  public double getWeight (int i) {
+    return ((double) this.arg_weights.get(i));
   }
 
   /**

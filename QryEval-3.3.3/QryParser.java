@@ -95,24 +95,33 @@ public class QryParser {
     
     //  Create the query operator.
     // Modified on 09/15/18 by @alicehzheng : added cases for AND and NEAR/N operators
+    // Modified on 09/30/18 by @alicehzheng: added cases for SUM, WINDOW, WAND,WSUM
 
     switch (operatorNameLowerCase) {
       case "#or":
           operator = new QrySopOr ();
           break;
-
       case "#syn":
           operator = new QryIopSyn ();
-          break;
-		
+          break;	
       case "#and":
           operator = new QrySopAnd();
           break;
-          
+      case "#sum":
+          operator = new QrySopSum();
+          break;
       case "#near":
           operator = new QryIopNear(operatorDistance);
           break;
-          
+      case "#window":
+          operator = new QryIopWindow(operatorDistance);
+          break;
+      case "#wand":
+          operator = new QrySopWand();
+          break;
+      case "#wsum":
+          operator = new QrySopWsum();
+          break; 
       default:
           syntaxError ("Unknown query operator " + operatorName);
     }
@@ -314,20 +323,33 @@ public class QryParser {
       //  If the operator uses weighted query arguments, each pass of
       //  this loop must handle "weight arg".  Handle the weight first.
 
+      
       //  STUDENT HW2 CODE GOES HERE
-
+      //  Added on 09/30/18 by @alicehzheng: handling the weights of arguments
+      Double weight = null;
+      boolean hasWeight = false;
+      if(queryTree instanceof QrySopWand || queryTree instanceof QrySopWsum )
+          hasWeight = true;
+      if(hasWeight){
+          PopData<Double, String> w;
+          w = popWeight(queryString);
+          weight = w.getPopped();
+          queryString = w.getRemaining().trim();
+      }
+      
       //  Now handle the argument (which could be a subquery).
 
       Qry[] qargs = null;
       PopData<String,String> p;
 
       if (queryString.charAt(0) == '#') {	// Subquery
-	  p = popSubquery (queryString);
-	  qargs = new Qry[1];
-	  qargs[0] = parseString (p.getPopped());
-      } else {					// Term
-	  p = popTerm (queryString);
-	  qargs = createTerms (p.getPopped());
+	      p = popSubquery (queryString);
+	      qargs = new Qry[1];
+	      qargs[0] = parseString (p.getPopped());
+      } 
+      else{					// Term
+	      p = popTerm (queryString);
+	      qargs = createTerms (p.getPopped());
       }
 
       queryString = p.getRemaining().trim();	// Consume the arg
@@ -336,9 +358,12 @@ public class QryParser {
 
       for (int i=0; i<qargs.length; i++) {
 
-	//  STUDENTS WILL NEED TO ADJUST THIS BLOCK TO HANDLE WEIGHTS IN HW2
-
-	queryTree.appendArg (qargs[i]);
+	  //  STUDENTS WILL NEED TO ADJUST THIS BLOCK TO HANDLE WEIGHTS IN HW2
+      // Modified on 09/30/18 by @alicehzheng: handling weight
+          if(hasWeight)
+              queryTree.appendArg(qargs[i], weight);
+          else
+              queryTree.appendArg(qargs[i]);
       }
     }
 
@@ -391,6 +416,22 @@ public class QryParser {
     return new PopData<String,String>(substrings[0], argString);
   }
 
+  /**
+   *  Created on 09/30/18 by @alicehzheng
+   *  Remove a weight from an argument string.  Return the weight and
+   *  the modified argument string.
+   *  @param String A partial query argument string, e.g., "0.7 a 0.8 #and(...) 0.1 b".
+   *  @return PopData<Double,String>
+   *  The weight and the modified argString (e.g., "0.7" and "a 0.8 #and(...) 0.1 b")
+   */
+  static private PopData<Double,String> popWeight (String argString) {
+    
+    String[] substrings = argString.split ("[ \t\n\r]+", 2);
+    Double weight = Double.parseDouble(substrings[0]);
+    argString = substrings[1];
+    
+    return new PopData<Double,String>(weight, argString);
+  }
     
   /**
    *  Throw an error specialized for query parsing syntax errors.
