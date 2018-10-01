@@ -25,10 +25,12 @@ public class QrySopScore extends QrySop {
      *  @return True if the query matches, otherwise false.
      */
     public boolean docIteratorHasMatch (RetrievalModel r) {
+        /**
         if(r instanceof RetrievalModelIndri)
             return this.docIteratorHasMatchMin(r); // score operator for indri calculate scores for docs that have at least one query term
         else
-            return this.docIteratorHasMatchAll (r);
+        **/
+        return this.docIteratorHasMatchAll (r);
     }
 
   /**
@@ -172,15 +174,13 @@ public class QrySopScore extends QrySop {
         double tfWeight = 0.0;
         long N = Idx.getNumDocs(); // total number of documents
         int df = arg.getDf(); // document frequency of this term
-        double avg_len = Idx.getSumOfFieldLengths(arg.getField()) / (double) Idx.getDocCount (arg.getField()); // average document length of specified field
+        double avg_len = Idx.getSumOfFieldLengths(arg.getField()) / (float) Idx.getDocCount (arg.getField()); // average document length of specified field
         int doc_len = Idx.getFieldLength(arg.getField(), docidMatched); // document length of matched document in specified field
         int tf = arg.getTfinDoc(); // term frequency
-        idfWeight = Math.log((N - df + 0.5) / (double) (df + 0.5));
-        if(idfWeight < 0)
-            idfWeight = 0;
+        idfWeight = Math.max(0.0, Math.log((N - df + 0.5) / (double) (df + 0.5)));
         double k1 = model.k1;
         double b = model.b;
-        tfWeight = tf / (double) (tf + k1 * ((1-b) + b * doc_len / (double) avg_len));
+        tfWeight = ((double)tf) / (tf + k1 * ((1-b) + b * ((double)doc_len) / avg_len));
         score = idfWeight * tfWeight;
         return score;
     }

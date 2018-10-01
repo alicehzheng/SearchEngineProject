@@ -18,7 +18,7 @@ public class RetrievalModelIndri extends RetrievalModel {
         this.lambda = l;
     }
     public String defaultQrySopName () {
-        return new String ("#AND");
+        return new String ("#and");
     }
     int mu;
     double lambda;

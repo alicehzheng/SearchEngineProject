@@ -20,7 +20,7 @@ public class RetrievalModelBM25 extends RetrievalModel{
         this.b = b;
     }
     public String defaultQrySopName () {
-        return new String ("#SUM");
+        return new String ("#sum");
       }
     // paramters for the BM25 model
     double k1, k3, b;

@@ -104,6 +104,8 @@ public class QryEval {
         if(k1 < 0 || k3 < 0 || b < 0 || b > 1 )
             throw new IllegalArgumentException("Illegal Parameters for BM25 Retrieval Model ");
         model = new RetrievalModelBM25(k1,k3,b);
+        // debug info
+        System.out.println("Parameters of BM25 are k1:"+ k1 + " k3:" + k3 + " b:"+ b);
     }
     else if(modelString.equals("indri")){
         if(!(parameters.containsKey("Indri:mu") && parameters.containsKey("Indri:lambda")))

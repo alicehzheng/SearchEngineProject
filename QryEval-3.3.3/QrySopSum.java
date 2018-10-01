@@ -21,7 +21,7 @@ public class QrySopSum extends QrySop {
    *  @return True if the query matches, otherwise false.
    */
   public boolean docIteratorHasMatch (RetrievalModel r) {
-    return this.docIteratorHasMatchFirst (r);
+      return this.docIteratorHasMatchMin (r); // Note: Sum operator for BM25 only requires math min
   }
 
   /**
@@ -63,31 +63,22 @@ public class QrySopSum extends QrySop {
       if (! this.docIteratorHasMatchCache()) {
           return 0.0;
         } else {
+          int docidMatched = this.docIteratorGetMatch();
           double sumScore = 0;
           for (int i=0; i<this.args.size(); i++) {
               Qry q_i = this.args.get(i);
               // QrySopSum can only have QrySop operators as arguments
               // Note: may need to be modified to throw exception
-              double score_i = ((QrySop) q_i).getScore(r);
-              sumScore += score_i;
+              if(q_i.docIteratorHasMatch(r) && q_i.docIteratorGetMatch() == docidMatched){
+                  double score_i = ((QrySop) q_i).getScore(r);
+                  sumScore += score_i;
+              }
           }
           return sumScore;
           
         }
   }
 
-  /**
-   *  Initialize the query operator (and its arguments), including any
-   *  internal iterators.  If the query operator is of type QryIop, it
-   *  is fully evaluated, and the results are stored in an internal
-   *  inverted list that may be accessed via the internal iterator.
-   *  @param r A retrieval model that guides initialization
-   *  @throws IOException Error accessing the Lucene index.
-   */
-  public void initialize (RetrievalModel r) throws IOException {
-
-    Qry q = this.args.get (0);
-    q.initialize (r);
-  }
+ 
 
 }
