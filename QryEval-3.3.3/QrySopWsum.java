@@ -84,10 +84,12 @@ public class QrySopWsum extends QrySop {
                 w_sum += this.arg_weights.get(i);
             double w_i = this.arg_weights.get(0);
             double score = 0.0;
+            
+           
             if(q_i.docIteratorHasMatch(r) && q_i.docIteratorGetMatch() == docidMatched)
-                score = (w_i / w_sum) * (double)((QrySop) q_i).getScore(r);
+                score += (w_i / w_sum) * (double)((QrySop) q_i).getScore(r);
             else 
-                score = (w_i / w_sum) * (double)((QrySop) q_i).getDefaultScore(r,docidMatched);
+                score += (w_i / w_sum) * (double)((QrySop) q_i).getDefaultScore(r,docidMatched);
             for(int i = 1; i < q_len; i++){
                 q_i = this.args.get(i);
                 w_i = this.arg_weights.get(i);
@@ -96,6 +98,7 @@ public class QrySopWsum extends QrySop {
                 else 
                     score = score + (w_i / w_sum) * (double)((QrySop) q_i).getDefaultScore(r,docidMatched);
             }
+           
           return score;
         }
       }

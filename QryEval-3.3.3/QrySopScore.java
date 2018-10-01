@@ -91,13 +91,13 @@ public class QrySopScore extends QrySop {
       double lambda = model.lambda;
       QryIop arg = (QryIop)this.getArg(0);
       double defaultScore = 0.0;
-      double ctf = (double)arg.getCtf(); // collection term frequency associated with this argument
+      double ctf = 0.5;
+      if(arg.getCtf() > 0)
+          ctf = (double)arg.getCtf();// collection term frequency associated with this argument
       long c_len = Idx.getSumOfFieldLengths(arg.getField()); // total length of collection in a specified field
       int doc_len = Idx.getFieldLength(arg.getField(), (int)docid); // document length of doc docid in specified field
-      if(ctf == 0)
-          ctf = 0.5;
-      double MLE = ctf / (double) c_len;
-      defaultScore = (1 - lambda) * (mu * MLE / (double)(doc_len + mu)) + lambda * MLE;
+      double MLE = ctf / c_len;
+      defaultScore = (1 - lambda) * ((double)mu * MLE / (double)(doc_len + mu)) + lambda * MLE;
       return defaultScore; 
   }
   /**
@@ -118,8 +118,8 @@ public class QrySopScore extends QrySop {
       long c_len = Idx.getSumOfFieldLengths(arg.getField()); // total length of collection in a specified field
       int doc_len = Idx.getFieldLength(arg.getField(), docid); // document length of doc docid in specified field
       int tf = arg.getTfinDoc(); // term frequency
-      double MLE = ctf / (double) c_len;
-      score = (1 - lambda) * ((tf + mu * MLE) / (double)(doc_len + mu)) + lambda * MLE;
+      double MLE = ctf / c_len;
+      score = (1 - lambda) * ((double)(tf + mu * MLE) / (double)(doc_len + mu)) + lambda * MLE;
       return score;
     
   }
