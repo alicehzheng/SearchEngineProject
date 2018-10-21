@@ -419,18 +419,20 @@ public class QryEval {
         	StringBuffer newQuery = new StringBuffer();
         	newQuery.append("#wand ( ");
         	newQuery.append(fborigweight);
-        	newQuery.append(" ");
+        	newQuery.append(" #and(");
         	newQuery.append(query);
-        	newQuery.append(" ");
+        	newQuery.append(" ) ");
         	newQuery.append(1 - fborigweight);
         	newQuery.append(" ");
         	newQuery.append(expandedQuery);
         	newQuery.append(" )");
         	
         	String newqry = newQuery.toString();
+        	System.out.println("New Query " + newqry);
+        	
         	r= processQuery(newqry, model);
         	
-        	System.out.println("New Query " + newqry);
+        	
         }
         
         
