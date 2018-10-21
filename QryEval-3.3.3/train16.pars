@@ -10,5 +10,5 @@ fbDocs=10
 fbTerms=10
 fbMu=0
 fbOrigWeight=0.5
-fbExpansionQueryFile=experimentsHW3-Train-16.qryOut
+fbExpansionQueryFile=experiments/HW3-Train-16.qryOut
 fbInitialRankingFile=experiments/referenceRankingFile.teIn

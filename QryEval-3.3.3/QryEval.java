@@ -315,6 +315,7 @@ public class QryEval {
     	  }
     	  if(expansionModel.fbExpansionQueryFile != null)
     		  queryExpansionOutput = new BufferedWriter(new FileWriter(expansionModel.fbExpansionQueryFile));
+    	  
       }
 
       //  Each pass of the loop processes one query.
@@ -413,6 +414,7 @@ public class QryEval {
         	}
         	expandedQuery.append(" )");
         	
+        	//System.out.println(expansionModel.fbExpansionQueryFile);
         	if(queryExpansionOutput != null){
         		queryExpansionOutput.write(qid);
         		queryExpansionOutput.write(": ");
@@ -455,6 +457,10 @@ public class QryEval {
     } finally {
       input.close();
       output.close();
+      if(rankingFileInput != null)
+    	  rankingFileInput.close();
+      if(queryExpansionOutput != null)
+    	  queryExpansionOutput.close();
     }
   }
 
