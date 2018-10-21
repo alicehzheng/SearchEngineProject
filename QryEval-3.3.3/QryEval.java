@@ -14,6 +14,8 @@ import org.apache.lucene.search.*;
 import org.apache.lucene.store.FSDirectory;
 import org.apache.lucene.util.Version;
 
+import javafx.util.Pair;
+
 /**
  *  This software illustrates the architecture for the portion of a
  *  search engine that evaluates queries.  It is a guide for class
@@ -63,11 +65,13 @@ public class QryEval {
 
     Idx.open (parameters.get ("indexPath"));
     RetrievalModel model = initializeRetrievalModel (parameters);
-
+    
+    QryExpansionModel queryExpansion = initializeQryExpansionModel(parameters);
+    
     // Modified on 09/16/18 by @alicehzheng: added two more parameters
     //  Perform experiments.
     
-    processQueryFile(parameters.get("queryFilePath"), parameters.get("trecEvalOutputPath"), Integer.parseInt(parameters.get("trecEvalOutputLength")),model);
+    processQueryFile(parameters.get("queryFilePath"), parameters.get("trecEvalOutputPath"), Integer.parseInt(parameters.get("trecEvalOutputLength")),model,queryExpansion);
 
     //  Clean up.
     
@@ -124,6 +128,41 @@ public class QryEval {
     return model;
   }
 
+  /**
+   *  Created on 10/20/18 by @alicehzheng
+   *  Allocate the query expansion model and initialize it using parameters
+   *  from the parameter file.
+   *  @return The initialized query expansion model
+   *  @throws IOException Error accessing the Lucene index.
+   */
+  private static QryExpansionModel initializeQryExpansionModel (Map<String, String> parameters)
+    throws IOException {
+
+    QryExpansionModel model = null;
+    
+    if(!parameters.containsKey("fb") || parameters.get("fb") == "false")
+    	return model;
+    
+    if(!parameters.containsKey("fbDocs") || !parameters.containsKey("fbTerms") || !parameters.containsKey("fbMu") || !parameters.containsKey("fbOrigWeight"))
+    	throw new IllegalArgumentException("Not Enought Parameters for Query Expansion ");  
+    int fbdocs = Integer.parseInt(parameters.get("fbDocs"));
+    int fbterms = Integer.parseInt(parameters.get("fbTerms"));
+    int fbmu = Integer.parseInt(parameters.get("fbMu"));
+    double fborigweight = Double.parseDouble(parameters.get("fbOrigWeight"));
+    
+    if(fbdocs <= 0 || fbterms <= 0 || fbmu < 0 || fborigweight < 0 || fborigweight > 1)
+    	throw new IllegalArgumentException("Invalid Parameter(s) for Query Expansion ");  
+    
+    model = new QryExpansionModel(fbdocs, fbterms, fbmu, fborigweight);
+    
+    if(parameters.containsKey("fbInitialRankingFile"))
+    	model.addRankingFile(parameters.get("fbInitialRankingFile"));
+    
+    if(parameters.containsKey("fbExpansionQueryFile"))
+    	model.addQueryFile(parameters.get("fbExpansionQueryFile"));
+      
+    return model;
+  }
   /**
    * Print a message indicating the amount of memory used. The caller can
    * indicate whether garbage collection should be performed, which slows the
@@ -187,26 +226,97 @@ public class QryEval {
   }
 
   /**
+   *  Added on 10/20/18 by @alicehzheng: Comparator for the weighted list of terms
+   */
+  public static class WeightListComparator implements Comparator<Pair<String,Double>> {
+
+	    @Override
+	    public int compare(Pair<String, Double> s1, Pair<String,Double> s2) {
+	    	double w1 = s1.getValue(), w2 = s2.getValue();
+	    	if(w1 > w2)
+	    		return -1;
+	    	if(w1 == w2)
+	    		return 0;
+	    	return 1;
+	    }
+   }
+  
+  /**
    *  Modified on 09/16/18 by @alicehzheng: Added outputing result
+   *  Modified on 10/20/18 by @alicehzheng: Added query expansion processing
    *  Process the query file.
    *  @param queryFilePath
    *  @param outputFilePath // added on 09/16/18
    *  @param outputLen      // added on 09/16/18
    *  @param model
+   *  @param expansionModel // added on 10/20/18
    *  @throws IOException Error accessing the Lucene index.
    */
-  static void processQueryFile(String queryFilePath, String outputFilePath, int outputLen, RetrievalModel model)
+  static void processQueryFile(String queryFilePath, String outputFilePath, int outputLen, RetrievalModel model, QryExpansionModel expansionModel)
       throws IOException {
 
     BufferedReader input = null;
     BufferedWriter output = null;
-
+    
+    BufferedReader rankingFileInput = null;
+    BufferedWriter queryExpansionOutput = null;
+    
+    Map<String, ArrayList<Integer>> query2docids = new HashMap<String, ArrayList<Integer>> ();
+    Map<String, ArrayList<Double>> query2scores = new HashMap<String, ArrayList<Double>> ();
+    int fbdocs = 0, fbterms = 0, fbmu = 0;
+    double fborigweight = 0.0;
+    
     try {
       String qLine = null;
 
       input = new BufferedReader(new FileReader(queryFilePath));
       
       output = new BufferedWriter(new FileWriter(outputFilePath));
+      
+      // Added on 10/20/18 by @alicehzheng: Preprocesssing for potential query expansion
+      
+      if(expansionModel != null){
+    	  fbdocs = expansionModel.fbDocs;
+    	  fbterms = expansionModel.fbTerms;
+    	  fbmu = expansionModel.fbMu;
+    	  fborigweight = expansionModel.fbOrigWeight;
+    	  String dLine = null;
+    	  if(expansionModel.fbInitialRankingFile != null){
+    		  //System.out.println(expansionModel.fbInitialRankingFile);
+    		  rankingFileInput = new BufferedReader(new FileReader(expansionModel.fbInitialRankingFile));
+    		  while ((dLine = rankingFileInput.readLine()) != null) {
+    			  //System.out.println(dLine);
+    			  String[] parsed = dLine.split("\\s+");
+    			  //System.out.println(parsed);
+    			  
+    		      String qid = parsed[0];
+    		      String externalDocId = parsed[2];
+    		      Double score = Double.valueOf(parsed[4]);
+    		      Integer internalDocId = null;
+				  try {
+					internalDocId = Idx.getInternalDocid(externalDocId);
+				  } catch (Exception e) {
+					e.printStackTrace();
+				  }
+    		      if(!query2docids.containsKey(qid)){		
+    		    		query2docids.put(qid, new ArrayList<Integer> ());
+    		    		query2docids.get(qid).add(internalDocId);
+    		
+    		    		query2scores.put(qid, new ArrayList<Double> ());
+    		    		query2scores.get(qid).add(score);
+    		      }
+    		      else{
+    		    	  if(query2docids.get(qid).size() >= fbdocs)
+    		    		  continue;
+    		    	  query2docids.get(qid).add(internalDocId);
+    		    	  query2scores.get(qid).add(score);
+    		      }
+    		 }
+    	  }
+    	  if(expansionModel.fbExpansionQueryFile != null)
+    		  queryExpansionOutput = new BufferedWriter(new FileWriter(expansionModel.fbExpansionQueryFile));
+    	  
+      }
 
       //  Each pass of the loop processes one query.
 
@@ -223,23 +333,134 @@ public class QryEval {
         String qid = qLine.substring(0, d);
         String query = qLine.substring(d + 1);
 
-        System.out.println("Query " + qLine);
+        System.out.println("Original Query " + qLine);
 
         ScoreList r = null;
+        ScoreList roriginal = null;
 
-        r = processQuery(query, model);
-        
-        // Modified on 09/16/18 by @alicehzheng
-        if (r != null) {
-          printResults(qid, r,output, outputLen);
-          System.out.println();
+        if(expansionModel == null){
+        	r= processQuery(query, model);
         }
+        else{
+        	ArrayList<Integer> docList = new ArrayList<Integer> ();
+        	ArrayList<Double> docScoreList = new ArrayList<Double> ();
+        	ArrayList<Integer> lenList = new ArrayList<Integer> ();
+        	ArrayList<TermVector> fwdIdxList = new ArrayList<TermVector> ();
+        	ArrayList<String> termList = new ArrayList<String> ();
+        	TreeSet<Pair<String,Double>> weightSet = new TreeSet<Pair<String,Double>> (new WeightListComparator());
+        	
+        	if(rankingFileInput == null){
+        		roriginal = processQuery(query, model);
+        		int upperbound = Math.min(roriginal.size(), fbdocs);
+        		for(int i = 0; i < upperbound; ++i){
+        			docList.add(roriginal.getDocid(i));
+        			docScoreList.add(roriginal.getDocidScore(i));
+        		}
+        	}
+        	else{
+        		docList = query2docids.get(qid);
+        		docScoreList = query2scores.get(qid);
+        	}
+        	
+        	int docCnt = docList.size();
+        	for(int i = 0; i < docCnt; ++i){
+        		int docid = docList.get(i);
+        		TermVector forwardIndex = new TermVector(docid, "body");
+        		fwdIdxList.add(forwardIndex);
+        		int doclen = forwardIndex.positionsLength();
+        		lenList.add(doclen);
+        		int vocabSize = forwardIndex.stemsLength();
+        		for(int j = 0; j < vocabSize; ++j){
+        			if(forwardIndex.stemFreq(j) > 0){ // filter stop words
+        				String term = forwardIndex.stemString(j);
+        				// filter terms that have already been added as well as those contain comma/period 
+        				if (!termList.contains(term) && !term.contains(",") && !term.contains("."))
+        					termList.add(term);
+        			}
+        		}
+        	}
+        	
+        	long collectionTokenCnt = Idx.getSumOfFieldLengths("body");
+        	int termCnt = termList.size();
+        	for(int i = 0; i < termCnt; ++i){
+        		String term = termList.get(i);
+        		double pt_c = (double) Idx.getTotalTermFreq("body", term) / collectionTokenCnt;
+        		double weight = 0.0;
+        		for(int j = 0; j < docCnt; ++j){
+        			TermVector fwdidx = fwdIdxList.get(j);
+        			int tf = 0;
+        			int termIdx = fwdidx.indexOfStem(term);
+        			if( termIdx >= 0)
+        				tf = fwdidx.stemFreq(termIdx);
+        			weight += ((tf + fbmu * pt_c) / (lenList.get(j) + fbmu)) * docScoreList.get(j);
+        		}
+        		weight *= Math.log(1 / pt_c);
+        		weightSet.add(new Pair<String, Double> (term,weight));
+        	}
+        	
+        	
+        	StringBuffer expandedQuery = new StringBuffer();
+        	expandedQuery.append("#wand ( ");
+        	Iterator it = weightSet.iterator();
+        	int expandedCnt = 0;
+        	
+        	while(it.hasNext() && expandedCnt < fbterms){
+        		expandedCnt++;
+        	    Pair<String, Double> termpair = (Pair<String,Double>) it.next();
+        	    expandedQuery.append(termpair.getValue());
+        	    expandedQuery.append(" ");
+        	    expandedQuery.append(termpair.getKey());
+        	    expandedQuery.append(" ");
+        	}
+        	expandedQuery.append(" )");
+        	
+        	//System.out.println(expansionModel.fbExpansionQueryFile);
+        	if(queryExpansionOutput != null){
+        		queryExpansionOutput.write(qid);
+        		queryExpansionOutput.write(": ");
+        		queryExpansionOutput.write(expandedQuery.toString());
+        		queryExpansionOutput.newLine();
+        	}
+        	
+        	StringBuffer newQuery = new StringBuffer();
+        	newQuery.append("#wand ( ");
+        	newQuery.append(fborigweight);
+        	newQuery.append(" #and(");
+        	newQuery.append(query);
+        	newQuery.append(" ) ");
+        	newQuery.append(1 - fborigweight);
+        	newQuery.append(" ");
+        	newQuery.append(expandedQuery);
+        	newQuery.append(" )");
+        	
+        	String newqry = newQuery.toString();
+        	System.out.println("New Query " + newqry);
+        	
+        	r= processQuery(newqry, model);
+        	
+        	
+        }
+        
+        
+        
+        if (r != null) {
+            printResults(qid, r,output, outputLen);
+            System.out.println();
+        }
+        
+        
+       
+        
       }
     } catch (IOException ex) {
       ex.printStackTrace();
     } finally {
       input.close();
       output.close();
+      if(rankingFileInput != null)
+    	  rankingFileInput.close();
+      if(queryExpansionOutput != null)
+    	  queryExpansionOutput.close();
     }
   }
 
