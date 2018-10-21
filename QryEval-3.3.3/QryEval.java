@@ -364,7 +364,8 @@ public class QryEval {
         		fwdIdxList.add(forwardIndex);
         		int doclen = forwardIndex.positionsLength();
         		lenList.add(doclen);
-        		for(int j = 0; j < doclen; ++j){
+        		int vocabSize = forwardIndex.stemsLength();
+        		for(int j = 0; j < vocabSize; ++j){
         			if(forwardIndex.stemFreq(j) > 0){ // filter stop words
         				String term = forwardIndex.stemString(j);
         				// filter terms that have already been added as well as those contain comma/period 
@@ -422,11 +423,14 @@ public class QryEval {
         	newQuery.append(query);
         	newQuery.append(" ");
         	newQuery.append(1 - fborigweight);
+        	newQuery.append(" ");
         	newQuery.append(expandedQuery);
         	newQuery.append(" )");
         	
         	String newqry = newQuery.toString();
         	r= processQuery(newqry, model);
+        	
+        	System.out.println("New Query " + newqry);
         }
         
         
