@@ -282,9 +282,13 @@ public class QryEval {
     	  fborigweight = expansionModel.fbOrigWeight;
     	  String dLine = null;
     	  if(expansionModel.fbInitialRankingFile != null){
+    		  //System.out.println(expansionModel.fbInitialRankingFile);
     		  rankingFileInput = new BufferedReader(new FileReader(expansionModel.fbInitialRankingFile));
-    		  while ((dLine = input.readLine()) != null) {
+    		  while ((dLine = rankingFileInput.readLine()) != null) {
+    			  //System.out.println(dLine);
     			  String[] parsed = dLine.split("\\s+");
+    			  //System.out.println(parsed);
+    			  
     		      String qid = parsed[0];
     		      String externalDocId = parsed[2];
     		      Double score = Double.valueOf(parsed[4]);
