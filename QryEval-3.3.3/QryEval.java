@@ -65,13 +65,13 @@ public class QryEval {
 
     Idx.open (parameters.get ("indexPath"));
     
-    // Added on 11/04/18 by @alicehzheng: taking LeToR into consideration
+    // Added on 11/04/18 by @alicehzheng: taking LeToR into consideration (training)
     boolean needLeToR = (parameters.get ("retrievalAlgorithm").toLowerCase()).equals("letor");
+    LeToR letor = null;
     if(needLeToR){
     	System.out.println("Learning To Rank");
-    	LeToR letor = initializeLeToR(parameters);
+    	letor = initializeLeToR(parameters);
     	letor.train();
-    	return;
     }
     	
     	
@@ -81,10 +81,14 @@ public class QryEval {
     QryExpansionModel queryExpansion = initializeQryExpansionModel(parameters);
     
     // Modified on 09/16/18 by @alicehzheng: added two more parameters
+    // Modified on 11/05/18 by @alicehzheng: taking LeToR into consideration (reranking)
     //  Perform experiments.
     
-    processQueryFile(parameters.get("queryFilePath"), parameters.get("trecEvalOutputPath"), Integer.parseInt(parameters.get("trecEvalOutputLength")),model,queryExpansion);
+    processQueryFile(parameters.get("queryFilePath"), parameters.get("trecEvalOutputPath"), Integer.parseInt(parameters.get("trecEvalOutputLength")),model,queryExpansion, letor);
 
+    
+   
+    
     //  Clean up.
     
     timer.stop ();
@@ -300,15 +304,17 @@ public class QryEval {
   /**
    *  Modified on 09/16/18 by @alicehzheng: Added outputing result
    *  Modified on 10/20/18 by @alicehzheng: Added query expansion processing
+   *  Modified on 11/05/18 by @alicehzheng: taking LeToR into consideration (reranking)
    *  Process the query file.
    *  @param queryFilePath
    *  @param outputFilePath // added on 09/16/18
    *  @param outputLen      // added on 09/16/18
    *  @param model
    *  @param expansionModel // added on 10/20/18
+   *  @param letor          // added on 11/05/18 
    *  @throws IOException Error accessing the Lucene index.
    */
-  static void processQueryFile(String queryFilePath, String outputFilePath, int outputLen, RetrievalModel model, QryExpansionModel expansionModel)
+  static void processQueryFile(String queryFilePath, String outputFilePath, int outputLen, RetrievalModel model, QryExpansionModel expansionModel, LeToR letor)
       throws IOException {
 
     BufferedReader input = null;
@@ -317,17 +323,25 @@ public class QryEval {
     BufferedReader rankingFileInput = null;
     BufferedWriter queryExpansionOutput = null;
     
+    BufferedWriter testingFeatureVectorOutput = null;
+    
+    
     Map<String, ArrayList<Integer>> query2docids = new HashMap<String, ArrayList<Integer>> ();
     Map<String, ArrayList<Double>> query2scores = new HashMap<String, ArrayList<Double>> ();
     int fbdocs = 0, fbterms = 0, fbmu = 0;
     double fborigweight = 0.0;
     
+    ArrayList<String> qidList = new ArrayList<String>();
+   
     try {
       String qLine = null;
 
       input = new BufferedReader(new FileReader(queryFilePath));
       
       output = new BufferedWriter(new FileWriter(outputFilePath));
+      
+      if(letor != null)
+    	  testingFeatureVectorOutput = new BufferedWriter(new FileWriter(letor.testingFeatureVectorsFile));
       
       // Added on 10/20/18 by @alicehzheng: Preprocesssing for potential query expansion
       
@@ -390,7 +404,9 @@ public class QryEval {
         String query = qLine.substring(d + 1);
 
         System.out.println("Original Query " + qLine);
-
+        
+        qidList.add(qid);
+        
         ScoreList r = null;
         ScoreList roriginal = null;
 
@@ -498,16 +514,51 @@ public class QryEval {
         }
         
         
-        
-        if (r != null) {
-            printResults(qid, r,output, outputLen);
-            System.out.println();
-        }
-        
-        
-       
-        
+        // Modified on 11/05/18 by @alicehzheng: adding a letor reranking process
+        if (r != null ) {
+        	if(letor == null){
+        		printResults(qid, r,output, outputLen);
+        		System.out.println();
+        	}
+        	else{	
+        		ArrayList<String> externalList = new ArrayList<String> ();
+        		int upperbound = Math.min(r.size(), 100);
+        		for(int i = 0; i < upperbound; ++i){
+        			// get external doc id of the doc in the score list
+        			externalList.add(Idx.getExternalDocid(r.getDocid(i)));
+        		}
+        		try {
+        			letor.test(qLine, externalList,testingFeatureVectorOutput);
+				} catch (Exception e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
+        	}
+        }   
+          
       }
+      
+      
+      if(letor != null){
+    	  if(testingFeatureVectorOutput != null)
+        	  testingFeatureVectorOutput.close();
+    	  ArrayList<ScoreList> results = null;
+      		try {
+				results = letor.rerank();
+			} catch (Exception e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+      	
+      		int queryCnt = qidList.size();
+      		for(int i = 0; i < queryCnt; ++i){
+      			printResults(qidList.get(i), results.get(i), output, outputLen);
+      			System.out.println();
+      		}
+      	}
+      
+      
+      
     } catch (IOException ex) {
       ex.printStackTrace();
     } finally {
@@ -517,6 +568,7 @@ public class QryEval {
     	  rankingFileInput.close();
       if(queryExpansionOutput != null)
     	  queryExpansionOutput.close();
+      
     }
   }
 

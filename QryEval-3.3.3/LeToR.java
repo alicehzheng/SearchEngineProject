@@ -3,6 +3,7 @@ import java.io.BufferedWriter;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.io.InputStreamReader;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
@@ -82,8 +83,143 @@ public class LeToR {
     
     }
 	
-    public void train() throws IOException{
-    	this.generateFeatureVectors(trainingQueryFile, trainingFeatureVectorsFile, trainingQrelsFile);
+    public void train() throws Exception{
+    	this.generateFeatureVectors(this.trainingQueryFile, this.trainingFeatureVectorsFile, this.trainingQrelsFile);
+        // runs svm_rank_learn from within Java to train the model
+        // execPath is the location of the svm_rank_learn utility, 
+        // which is specified by letor:svmRankLearnPath in the parameter file.
+        // FEAT_GEN.c is the value of the letor:c parameter.
+        Process cmdProc = Runtime.getRuntime().exec(
+            new String[] { this.svmRankLearnPath, "-c", String.valueOf(this.c), this.trainingFeatureVectorsFile,
+            		this.svmRankModelFile });
+
+        // The stdout/stderr consuming code MUST be included.
+        // It prevents the OS from running out of output buffer space and stalling.
+
+        // consume stdout and print it out for debugging purposes
+        BufferedReader stdoutReader = new BufferedReader(
+            new InputStreamReader(cmdProc.getInputStream()));
+        String line;
+        while ((line = stdoutReader.readLine()) != null) {
+          System.out.println(line);
+        }
+        // consume stderr and print it for debugging purposes
+        BufferedReader stderrReader = new BufferedReader(
+            new InputStreamReader(cmdProc.getErrorStream()));
+        while ((line = stderrReader.readLine()) != null) {
+          System.out.println(line);
+        }
+
+        // get the return value from the executable. 0 means success, non-zero 
+        // indicates a problem
+        int retValue = -1;
+		try {
+			retValue = cmdProc.waitFor();
+		} catch (InterruptedException e) {
+			// TODO Auto-generated catch block
+			retValue = -1;
+		}
+        if (retValue != 0) {
+          throw new Exception("SVM Rank crashed.");
+        }
+
+    }
+    
+    public void test(String queryStr, ArrayList<String> externalIdList, BufferedWriter output) throws Exception{
+    	this.generateFeatureVectors(queryStr, externalIdList, output);
+    	return;
+    }
+    
+    public ArrayList<ScoreList> rerank() throws Exception{
+    	// runs svm_rank_learn from within Java to train the model
+        // execPath is the location of the svm_rank_classify utility, 
+        // which is specified by letor:svmRankClassifyPath in the parameter file.
+        // FEAT_GEN.c is the value of the letor:c parameter.
+        Process cmdProc = Runtime.getRuntime().exec(
+            new String[] { this.svmRankClassifyPath, this.testingFeatureVectorsFile,
+            		this.svmRankModelFile, this.testingDocumentScores });
+
+        // The stdout/stderr consuming code MUST be included.
+        // It prevents the OS from running out of output buffer space and stalling.
+
+        // consume stdout and print it out for debugging purposes
+        BufferedReader stdoutReader = new BufferedReader(
+            new InputStreamReader(cmdProc.getInputStream()));
+        String line;
+        while ((line = stdoutReader.readLine()) != null) {
+          System.out.println(line);
+        }
+        // consume stderr and print it for debugging purposes
+        BufferedReader stderrReader = new BufferedReader(
+            new InputStreamReader(cmdProc.getErrorStream()));
+        while ((line = stderrReader.readLine()) != null) {
+          System.out.println(line);
+        }
+
+        // get the return value from the executable. 0 means success, non-zero 
+        // indicates a problem
+        int retValue = -1;
+		try {
+			retValue = cmdProc.waitFor();
+		} catch (InterruptedException e) {
+			// TODO Auto-generated catch block
+			retValue = -1;
+		}
+        if (retValue != 0) {
+          throw new Exception("SVM Rank crashed.");
+        }
+        
+        
+        ArrayList<ScoreList> results = new ArrayList<ScoreList>();
+        BufferedReader testFeatureInput = null;
+        BufferedReader testDocScoreInput = null;
+        try{
+        	testFeatureInput = new BufferedReader(new FileReader(this.testingFeatureVectorsFile));
+        	testDocScoreInput = new BufferedReader(new FileReader(this.testingDocumentScores));
+        	String fLine = null;
+        	double score = 0.0;
+        	String prevQid = null;
+        	String curQid = null;
+        	ScoreList curRes = new ScoreList();
+        	while((fLine = testFeatureInput.readLine())!=null){
+        		score = Double.parseDouble(testDocScoreInput.readLine().trim());
+        		
+        		int d = fLine.indexOf(":");
+        		String newLine = fLine.substring(d+1);
+        		String[] parsed = (newLine.trim()).split(" ");
+        		
+        		curQid = parsed[0].trim();
+        	   
+        		String externalId = (parsed[(parsed.length)-1]).trim();
+        		System.out.println(curQid + " " + externalId + " " + score);
+        		
+        		if(prevQid != null && !curQid.equals(prevQid)){
+        			curRes.sortExternal();
+        			results.add(curRes);
+        			curRes = new ScoreList();
+        		}
+        		
+        		curRes.add(Idx.getInternalDocid(externalId), score);
+        		
+        		prevQid = curQid;
+        		
+        			
+        		
+        	}
+        	if(prevQid != null){
+    			curRes.sortExternal();
+    			results.add(curRes);
+    		}
+        	
+        }
+        catch (IOException ex) {
+  	      ex.printStackTrace();
+        } 
+        finally {
+        	testFeatureInput.close();
+        	testDocScoreInput.close();
+        }
+        return results;
     }
     
     public void generateFeatureVectors(String queryFilePath, String outputFilePath, String relevanceFilePath)
@@ -108,7 +244,7 @@ public class LeToR {
 
     	        String qid = qLine.substring(0, d);
     	        String query = qLine.substring(d + 1);
-    	        String[] queryterms = (query.trim()).split(" ");
+    	        String[] queryterms = QryParser.tokenizeString(query);
     	        query2terms.put(qid, queryterms);
     	        System.out.println("Original Query " + qLine);
     	        //System.out.println(qid);
@@ -132,7 +268,7 @@ public class LeToR {
     			curQid = parsed[0].trim();
     			// all features for the previous query has been generated
     		    // now we need to normalize them and write them to output file
-    			if(query2terms.containsKey(prevQid)){
+    			if(query2terms.containsKey(prevQid) && !prevQid.equals(curQid)){
     				for(int fId = 1; fId <= 18; fId++){
     					if(disabledFeatures.indexOf(fId) >= 0)
     						continue;
@@ -341,6 +477,160 @@ public class LeToR {
     	}
     }
     
+    public void generateFeatureVectors(String queryStr, ArrayList<String> externalIdList, BufferedWriter output)
+    	    throws IOException{
+    			//ArrayList<String> newExternalList = new ArrayList<String>();
+    	    	try{
+    	    		
+    	    		int d = queryStr.indexOf(':');
+    	    	    if (d < 0) {
+    	    	          throw new IllegalArgumentException
+    	    	            ("Syntax error:  Missing ':' in query line.");
+    	    	    }
+    	    	    String qid = queryStr.substring(0, d);
+    	    	    String query = queryStr.substring(d + 1);
+    	    	    String[] terms = QryParser.tokenizeString(query);
+    	    	    
+    	    	    System.out.println("Original Query " + queryStr);
+    	    	    
+    	    		// key: external doc id 
+    	    		// values: relScore, feature1, feature2, ..., feature18
+    	    		Map<String, String[]> doc2features = new HashMap<String,String[] > ();
+    	    		int docCnt = externalIdList.size();
+    	    		for(int i = 0; i < docCnt; ++i){
+    	    			String externalDocId = externalIdList.get(i);
+    	    			int docId;
+    	    			try{
+    	    				docId = Idx.getInternalDocid(externalDocId);
+    	    			}
+    	    			catch (Exception ex){
+    	    				System.out.println(externalDocId + "is not in the index");
+    	    				continue;
+    	    			}
+    	    			
+    	    			String[] relandFeatures = new String[19];
+    	    			relandFeatures[0] = "0"; // relevance score
+    	    			
+    	    			if(disabledFeatures.indexOf(1) < 0)
+    	    				relandFeatures[1] = f1(docId);
+    	    			if(disabledFeatures.indexOf(2) < 0)
+    	    				relandFeatures[2] = f2(docId);
+    	    			if(disabledFeatures.indexOf(3) < 0)
+    	    				relandFeatures[3] = f3(docId);
+    	    			if(disabledFeatures.indexOf(4) < 0)
+    	    				relandFeatures[4] = f4(docId);
+    	    			
+    	    			if(disabledFeatures.indexOf(5) < 0)
+    	    				relandFeatures[5] = f5(terms,docId);
+    	    			if(disabledFeatures.indexOf(6) < 0)
+    	    				relandFeatures[6] = f6(terms,docId);
+    	    			if(disabledFeatures.indexOf(7) < 0)
+    	    				relandFeatures[7] = f7(terms,docId);
+    	    			
+    	    			if(disabledFeatures.indexOf(8) < 0)
+    	    				relandFeatures[8] = f8(terms,docId);
+    	    			if(disabledFeatures.indexOf(9) < 0)
+    	    				relandFeatures[9] = f9(terms,docId);
+    	    			if(disabledFeatures.indexOf(10) < 0)
+    	    				relandFeatures[10] = f10(terms,docId);
+    	    			
+    	    			if(disabledFeatures.indexOf(11) < 0)
+    	    				relandFeatures[11] = f11(terms,docId);
+    	    			if(disabledFeatures.indexOf(12) < 0)
+    	    				relandFeatures[12] = f12(terms,docId);
+    	    			if(disabledFeatures.indexOf(13) < 0)
+    	    				relandFeatures[13] = f13(terms,docId);
+    	    			
+    	    			if(disabledFeatures.indexOf(14) < 0)
+    	    				relandFeatures[14] = f14(terms,docId);
+    	    			if(disabledFeatures.indexOf(15) < 0)
+    	    				relandFeatures[15] = f15(terms,docId);
+    	    			if(disabledFeatures.indexOf(16) < 0)
+    	    				relandFeatures[16] = f16(terms,docId);
+    	    			
+    	    			if(disabledFeatures.indexOf(17) < 0)
+    	    				relandFeatures[17] = f17(docId);
+    	    			if(disabledFeatures.indexOf(18) < 0)
+    	    				relandFeatures[18] = f18(terms,docId);
+    	    			
+    	    			doc2features.put(externalDocId, relandFeatures);
+    	    			
+    	    		}
+    	    		// all features for the  query has been generated
+    			    // now we need to normalize them and write them to output file
+    				if(true){
+    					for(int fId = 1; fId <= 18; fId++){
+    						if(disabledFeatures.indexOf(fId) >= 0)
+    							continue;
+    						double minVal = 0.0, maxVal = 0.0;
+    						boolean first = true;
+    						
+    						for(String doc: doc2features.keySet()){
+    							String fVal = doc2features.get(doc)[fId];
+    							//System.out.println("doc" + doc + "feature" + String.valueOf(fId) + " value:" + fVal);
+    							if(fVal.equals("NA")){
+    								//System.out.println("NA");
+    								continue;
+    							}
+    							double dfVal = Double.parseDouble(fVal);
+    							if(first == true){
+    								minVal = dfVal;
+    								maxVal = dfVal;
+    								first = false;
+    								//System.out.println("flag : " + minVal);
+    								continue;
+    							}
+    							
+    							if(dfVal < minVal)
+    								minVal = dfVal;
+    							else if(dfVal > maxVal)
+    								maxVal = dfVal;
+    						}
+    						
+    						//System.out.println("min val: " + minVal);
+    						//System.out.println("max val: " + maxVal);
+    						if(first == true || minVal == maxVal){
+    							for(String doc: doc2features.keySet()){
+    	    						doc2features.get(doc)[fId] = "0";
+    							}
+    						}
+    						else{
+    							
+    							for(String doc: doc2features.keySet()){
+    								String fVal = doc2features.get(doc)[fId];
+    								if(fVal.equals("NA"))
+    							        doc2features.get(doc)[fId] = "0";
+    								else{
+    									double dfVal = Double.parseDouble(fVal);
+    									doc2features.get(doc)[fId] = String.valueOf((dfVal - minVal) / (maxVal - minVal));
+    								}
+    							}	
+    						}
+    					}
+    					
+    					for(String doc: doc2features.keySet()){
+    						//newExternalList.add(doc);
+    						String[] relandfeatures = doc2features.get(doc);
+    						String outputMsg = relandfeatures[0] + " qid:" + qid;
+    						for(int fId = 1; fId <= 18; fId++){
+    	    					if(disabledFeatures.indexOf(fId) >= 0)
+    	    						continue;
+    	    					outputMsg += " " + String.valueOf(fId) + ":" + relandfeatures[fId];
+    						}
+    						outputMsg += " # " + doc + "\n";
+    						//System.out.print(outputMsg);
+    						output.write(outputMsg);
+    					}
+    					
+    				}
+    	    	}
+    	    	catch (IOException ex) {
+    	    	      ex.printStackTrace();
+    	    	} 
+    	    	//return newExternalList;
+    	    	
+    	    	
+    	    }
     
     // spam score
     private String f1(int docid){
