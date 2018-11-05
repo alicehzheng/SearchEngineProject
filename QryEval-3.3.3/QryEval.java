@@ -64,6 +64,18 @@ public class QryEval {
     //  Open the index and initialize the retrieval model.
 
     Idx.open (parameters.get ("indexPath"));
+    
+    // Added on 11/04/18 by @alicehzheng: taking LeToR into consideration
+    boolean needLeToR = (parameters.get ("retrievalAlgorithm").toLowerCase()).equals("letor");
+    if(needLeToR){
+    	System.out.println("Learning To Rank");
+    	LeToR letor = initializeLeToR(parameters);
+    	letor.train();
+    	return;
+    }
+    	
+    	
+  
     RetrievalModel model = initializeRetrievalModel (parameters);
     
     QryExpansionModel queryExpansion = initializeQryExpansionModel(parameters);
@@ -78,9 +90,52 @@ public class QryEval {
     timer.stop ();
     System.out.println ("Time:  " + timer);
   }
+  
+  private static LeToR initializeLeToR (Map<String, String> parameters) throws IOException{
+	  if(!(parameters.containsKey ("BM25:k_1") && parameters.containsKey ("BM25:k_3") && parameters.containsKey ("BM25:b")))
+	      throw new IllegalArgumentException("Missing Parameters for BM25 in LeToR");
+	  double k1 = Double.valueOf(parameters.get("BM25:k_1"));
+	  double k3 = Double.valueOf(parameters.get("BM25:k_3"));
+	  double b =  Double.valueOf(parameters.get("BM25:b"));
+	  if(k1 < 0 || k3 < 0 || b < 0 || b > 1 )
+	      throw new IllegalArgumentException("Illegal Parameters for BM25 Retrieval Model ");
+	  
+	  if(!(parameters.containsKey("Indri:mu") && parameters.containsKey("Indri:lambda")))
+	      throw new IllegalArgumentException("Missing Parameters for Indri in LeToR "); 
+	  int mu = Integer.valueOf(parameters.get("Indri:mu"));
+	  double lambda = Double.valueOf(parameters.get("Indri:lambda"));
+	  if(mu < 0 || lambda < 0 || lambda > 1)
+	      throw new IllegalArgumentException("Illegal Parameters for Indri Retrieval Model ");
+	   
+	  if(!(parameters.containsKey("letor:trainingQueryFile") && 
+			  parameters.containsKey("letor:trainingQrelsFile") &&
+			  parameters.containsKey("letor:trainingFeatureVectorsFile") &&
+			  parameters.containsKey("letor:svmRankLearnPath") && 
+			  parameters.containsKey("letor:svmRankClassifyPath") &&
+			  parameters.containsKey("letor:svmRankParamC") &&
+			  parameters.containsKey("letor:svmRankModelFile") && 
+			  parameters.containsKey("letor:testingFeatureVectorsFile") && 
+			  parameters.containsKey("letor:testingDocumentScores")))
+		  throw new IllegalArgumentException("Missing Parameters for LeToR "); 
+	  
+	  double c = Double.valueOf(parameters.get("letor:svmRankParamC"));
+	  if(parameters.containsKey("letor:featureDisable"))
+		  return new LeToR(c, k1, k3, b, mu, lambda,
+				  parameters.get("letor:trainingQueryFile"),parameters.get("letor:trainingQrelsFile"), parameters.get("letor:trainingFeatureVectorsFile"),
+				  parameters.get("letor:svmRankLearnPath"),parameters.get("letor:svmRankClassifyPath"),
+				  parameters.get("letor:svmRankModelFile"),parameters.get("letor:testingFeatureVectorsFile"), parameters.get("letor:testingDocumentScores"),
+				  parameters.get("letor:featureDisable"));
+	  else
+		  return new LeToR(c, k1, k3, b, mu, lambda,
+				  parameters.get("letor:trainingQueryFile"),parameters.get("letor:trainingQrelsFile"), parameters.get("letor:trainingFeatureVectorsFile"),
+				  parameters.get("letor:svmRankLearnPath"),parameters.get("letor:svmRankClassifyPath"),
+				  parameters.get("letor:svmRankModelFile"),parameters.get("letor:testingFeatureVectorsFile"), parameters.get("letor:testingDocumentScores"));
+	  
+  }
 
   /**
    *  Modified on 09/29/18 by @alicehzheng: adding BM25 and Indri
+   *  Modified on 11/04/2018 by @alicehzheng: taking LeToR into consideration
    *  Allocate the retrieval model and initialize it using parameters
    *  from the parameter file.
    *  @return The initialized retrieval model
@@ -99,7 +154,7 @@ public class QryEval {
     else if(modelString.equals("rankedboolean")){
     	model = new RetrievalModelRankedBoolean();
     }
-    else if(modelString.equals("bm25")){
+    else if(modelString.equals("bm25") || modelString.equals("letor")){
         if(!(parameters.containsKey ("BM25:k_1") && parameters.containsKey ("BM25:k_3") && parameters.containsKey ("BM25:b")))
             throw new IllegalArgumentException("Missing Parameters for BM25 Retrieval Model ");
         double k1 = Double.valueOf(parameters.get("BM25:k_1"));
@@ -123,6 +178,7 @@ public class QryEval {
     else {
       throw new IllegalArgumentException
         ("Unknown retrieval model " + parameters.get("retrievalAlgorithm"));
+      
     }
       
     return model;
