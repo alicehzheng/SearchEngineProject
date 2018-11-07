@@ -64,23 +64,82 @@ public class QryEval {
     //  Open the index and initialize the retrieval model.
 
     Idx.open (parameters.get ("indexPath"));
+    
+    // Added on 11/04/18 by @alicehzheng: taking LeToR into consideration (training)
+    boolean needLeToR = (parameters.get ("retrievalAlgorithm").toLowerCase()).equals("letor");
+    LeToR letor = null;
+    if(needLeToR){
+    	System.out.println("Learning To Rank");
+    	letor = initializeLeToR(parameters);
+    	letor.train();
+    }
+    	
+    	
+  
     RetrievalModel model = initializeRetrievalModel (parameters);
     
     QryExpansionModel queryExpansion = initializeQryExpansionModel(parameters);
     
     // Modified on 09/16/18 by @alicehzheng: added two more parameters
+    // Modified on 11/05/18 by @alicehzheng: taking LeToR into consideration (reranking)
     //  Perform experiments.
     
-    processQueryFile(parameters.get("queryFilePath"), parameters.get("trecEvalOutputPath"), Integer.parseInt(parameters.get("trecEvalOutputLength")),model,queryExpansion);
+    processQueryFile(parameters.get("queryFilePath"), parameters.get("trecEvalOutputPath"), Integer.parseInt(parameters.get("trecEvalOutputLength")),model,queryExpansion, letor);
 
+    
+   
+    
     //  Clean up.
     
     timer.stop ();
     System.out.println ("Time:  " + timer);
   }
+  
+  private static LeToR initializeLeToR (Map<String, String> parameters) throws IOException{
+	  if(!(parameters.containsKey ("BM25:k_1") && parameters.containsKey ("BM25:k_3") && parameters.containsKey ("BM25:b")))
+	      throw new IllegalArgumentException("Missing Parameters for BM25 in LeToR");
+	  double k1 = Double.valueOf(parameters.get("BM25:k_1"));
+	  double k3 = Double.valueOf(parameters.get("BM25:k_3"));
+	  double b =  Double.valueOf(parameters.get("BM25:b"));
+	  if(k1 < 0 || k3 < 0 || b < 0 || b > 1 )
+	      throw new IllegalArgumentException("Illegal Parameters for BM25 Retrieval Model ");
+	  
+	  if(!(parameters.containsKey("Indri:mu") && parameters.containsKey("Indri:lambda")))
+	      throw new IllegalArgumentException("Missing Parameters for Indri in LeToR "); 
+	  int mu = Integer.valueOf(parameters.get("Indri:mu"));
+	  double lambda = Double.valueOf(parameters.get("Indri:lambda"));
+	  if(mu < 0 || lambda < 0 || lambda > 1)
+	      throw new IllegalArgumentException("Illegal Parameters for Indri Retrieval Model ");
+	   
+	  if(!(parameters.containsKey("letor:trainingQueryFile") && 
+			  parameters.containsKey("letor:trainingQrelsFile") &&
+			  parameters.containsKey("letor:trainingFeatureVectorsFile") &&
+			  parameters.containsKey("letor:svmRankLearnPath") && 
+			  parameters.containsKey("letor:svmRankClassifyPath") &&
+			  parameters.containsKey("letor:svmRankParamC") &&
+			  parameters.containsKey("letor:svmRankModelFile") && 
+			  parameters.containsKey("letor:testingFeatureVectorsFile") && 
+			  parameters.containsKey("letor:testingDocumentScores")))
+		  throw new IllegalArgumentException("Missing Parameters for LeToR "); 
+	  
+	  double c = Double.valueOf(parameters.get("letor:svmRankParamC"));
+	  if(parameters.containsKey("letor:featureDisable"))
+		  return new LeToR(c, k1, k3, b, mu, lambda,
+				  parameters.get("letor:trainingQueryFile"),parameters.get("letor:trainingQrelsFile"), parameters.get("letor:trainingFeatureVectorsFile"),
+				  parameters.get("letor:svmRankLearnPath"),parameters.get("letor:svmRankClassifyPath"),
+				  parameters.get("letor:svmRankModelFile"),parameters.get("letor:testingFeatureVectorsFile"), parameters.get("letor:testingDocumentScores"),
+				  parameters.get("letor:featureDisable"));
+	  else
+		  return new LeToR(c, k1, k3, b, mu, lambda,
+				  parameters.get("letor:trainingQueryFile"),parameters.get("letor:trainingQrelsFile"), parameters.get("letor:trainingFeatureVectorsFile"),
+				  parameters.get("letor:svmRankLearnPath"),parameters.get("letor:svmRankClassifyPath"),
+				  parameters.get("letor:svmRankModelFile"),parameters.get("letor:testingFeatureVectorsFile"), parameters.get("letor:testingDocumentScores"));
+	  
+  }
 
   /**
    *  Modified on 09/29/18 by @alicehzheng: adding BM25 and Indri
+   *  Modified on 11/04/2018 by @alicehzheng: taking LeToR into consideration
    *  Allocate the retrieval model and initialize it using parameters
    *  from the parameter file.
    *  @return The initialized retrieval model
@@ -99,7 +158,7 @@ public class QryEval {
     else if(modelString.equals("rankedboolean")){
     	model = new RetrievalModelRankedBoolean();
     }
-    else if(modelString.equals("bm25")){
+    else if(modelString.equals("bm25") || modelString.equals("letor")){
         if(!(parameters.containsKey ("BM25:k_1") && parameters.containsKey ("BM25:k_3") && parameters.containsKey ("BM25:b")))
             throw new IllegalArgumentException("Missing Parameters for BM25 Retrieval Model ");
         double k1 = Double.valueOf(parameters.get("BM25:k_1"));
@@ -123,6 +182,7 @@ public class QryEval {
     else {
       throw new IllegalArgumentException
         ("Unknown retrieval model " + parameters.get("retrievalAlgorithm"));
+      
     }
       
     return model;
@@ -244,15 +304,17 @@ public class QryEval {
   /**
    *  Modified on 09/16/18 by @alicehzheng: Added outputing result
    *  Modified on 10/20/18 by @alicehzheng: Added query expansion processing
+   *  Modified on 11/05/18 by @alicehzheng: taking LeToR into consideration (reranking)
    *  Process the query file.
    *  @param queryFilePath
    *  @param outputFilePath // added on 09/16/18
    *  @param outputLen      // added on 09/16/18
    *  @param model
    *  @param expansionModel // added on 10/20/18
+   *  @param letor          // added on 11/05/18 
    *  @throws IOException Error accessing the Lucene index.
    */
-  static void processQueryFile(String queryFilePath, String outputFilePath, int outputLen, RetrievalModel model, QryExpansionModel expansionModel)
+  static void processQueryFile(String queryFilePath, String outputFilePath, int outputLen, RetrievalModel model, QryExpansionModel expansionModel, LeToR letor)
       throws IOException {
 
     BufferedReader input = null;
@@ -261,17 +323,25 @@ public class QryEval {
     BufferedReader rankingFileInput = null;
     BufferedWriter queryExpansionOutput = null;
     
+    BufferedWriter testingFeatureVectorOutput = null;
+    
+    
     Map<String, ArrayList<Integer>> query2docids = new HashMap<String, ArrayList<Integer>> ();
     Map<String, ArrayList<Double>> query2scores = new HashMap<String, ArrayList<Double>> ();
     int fbdocs = 0, fbterms = 0, fbmu = 0;
     double fborigweight = 0.0;
     
+    ArrayList<String> qidList = new ArrayList<String>();
+   
     try {
       String qLine = null;
 
       input = new BufferedReader(new FileReader(queryFilePath));
       
       output = new BufferedWriter(new FileWriter(outputFilePath));
+      
+      if(letor != null)
+    	  testingFeatureVectorOutput = new BufferedWriter(new FileWriter(letor.testingFeatureVectorsFile));
       
       // Added on 10/20/18 by @alicehzheng: Preprocesssing for potential query expansion
       
@@ -334,7 +404,9 @@ public class QryEval {
         String query = qLine.substring(d + 1);
 
         System.out.println("Original Query " + qLine);
-
+        
+        qidList.add(qid);
+        
         ScoreList r = null;
         ScoreList roriginal = null;
 
@@ -442,16 +514,51 @@ public class QryEval {
         }
         
         
-        
-        if (r != null) {
-            printResults(qid, r,output, outputLen);
-            System.out.println();
-        }
-        
-        
-       
-        
+        // Modified on 11/05/18 by @alicehzheng: adding a letor reranking process
+        if (r != null ) {
+        	if(letor == null){
+        		printResults(qid, r,output, outputLen);
+        		System.out.println();
+        	}
+        	else{	
+        		ArrayList<String> externalList = new ArrayList<String> ();
+        		int upperbound = Math.min(r.size(), 100);
+        		for(int i = 0; i < upperbound; ++i){
+        			// get external doc id of the doc in the score list
+        			externalList.add(Idx.getExternalDocid(r.getDocid(i)));
+        		}
+        		try {
+        			letor.test(qLine, externalList,testingFeatureVectorOutput);
+				} catch (Exception e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
+        	}
+        }   
+          
       }
+      
+      
+      if(letor != null){
+    	  if(testingFeatureVectorOutput != null)
+        	  testingFeatureVectorOutput.close();
+    	  ArrayList<ScoreList> results = null;
+      		try {
+				results = letor.rerank();
+			} catch (Exception e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+      	
+      		int queryCnt = qidList.size();
+      		for(int i = 0; i < queryCnt; ++i){
+      			printResults(qidList.get(i), results.get(i), output, outputLen);
+      			System.out.println();
+      		}
+      	}
+      
+      
+      
     } catch (IOException ex) {
       ex.printStackTrace();
     } finally {
@@ -461,6 +568,7 @@ public class QryEval {
     	  rankingFileInput.close();
       if(queryExpansionOutput != null)
     	  queryExpansionOutput.close();
+      
     }
   }
 
