@@ -38,3 +38,10 @@
 /QryExpansionModelIndri.class
 /QryEval$WeightListComparator.class
 /LeToR.class
+/DiversityModel.class
+/DiversityModelXquad.class
+/DiversityModelPm2.class
+/LiteScoreList.class
+/LiteScoreList$ScoreListComparator.class
+/LiteScoreList$ScoreListEntry.class
+/LiteScoreList$ScoreListExternalComparator.class

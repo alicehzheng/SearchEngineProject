@@ -80,8 +80,11 @@ public class QryEval {
     
     QryExpansionModel queryExpansion = initializeQryExpansionModel(parameters);
     
+    DiversityModel diversitymodel = initializeDiversityModel(parameters);
+    
     // Modified on 09/16/18 by @alicehzheng: added two more parameters
     // Modified on 11/05/18 by @alicehzheng: taking LeToR into consideration (reranking)
+    // Modified on 11/19/18 by @alicehzheng: taking diversity into consideration
     //  Perform experiments.
     
     processQueryFile(parameters.get("queryFilePath"), parameters.get("trecEvalOutputPath"), Integer.parseInt(parameters.get("trecEvalOutputLength")),model,queryExpansion, letor);
@@ -220,6 +223,37 @@ public class QryEval {
     
     if(parameters.containsKey("fbExpansionQueryFile"))
     	model.addQueryFile(parameters.get("fbExpansionQueryFile"));
+      
+    return model;
+  }
+  
+  /**
+   *  Created on 11/19/18 by @alicehzheng
+   *  Allocate the diversity model and initialize it using parameters
+   */
+  private static DiversityModel initializeDiversityModel (Map<String, String> parameters)
+    throws IOException {
+
+    DiversityModel model = null;
+    
+    if(!parameters.containsKey("diversity") || parameters.get("diversity") == "false")
+    	return model;
+    
+    if(!parameters.containsKey("diversity:maxInputRankingsLength") || !parameters.containsKey("diversity:maxResultRankingLength") || !parameters.containsKey("diversity:algorithm") || !parameters.containsKey("diversity:intentsFile") || !parameters.containsKey("diversity:lambda") )
+    	throw new IllegalArgumentException("Not Enought Parameters for Diversification ");  
+    int maxinputrankingslength = Integer.parseInt(parameters.get("diversity:maxInputRankingsLength"));
+    int maxresultrankinglength = Integer.parseInt(parameters.get("diversity:maxResultRankingLength"));
+    double lambda = Double.parseDouble(parameters.get("diversity:lambda"));
+    String initialRankingFile = null;
+    if(parameters.containsKey("diversity:initialRankingFile"))
+    	initialRankingFile = parameters.get("diversity:initialRankingFile");
+    String intentsFile = parameters.get("diversity:intentsFile");
+    String algorithm = (parameters.get("diversity:algorithm")).toLowerCase();
+    if(algorithm == "xquad")
+    	model = new DiversityModelXquad(initialRankingFile,maxinputrankingslength,maxresultrankinglength,intentsFile,lambda);
+    else
+    	model = new DiversityModelPm2(initialRankingFile,maxinputrankingslength,maxresultrankinglength,intentsFile,lambda);
+
       
     return model;
   }
@@ -569,6 +603,84 @@ public class QryEval {
       if(queryExpansionOutput != null)
     	  queryExpansionOutput.close();
       
+    }
+  }
+  
+  /**
+   *  Added on 11/19/18 by @alicehzheng
+   *  Process the query file with Diversification
+   */
+ 
+  static void processQueryFileDiversity(String queryFilePath, String outputFilePath, int outputLen, RetrievalModel model, DiversityModel diversityModel)
+      throws IOException {
+
+    BufferedReader input = null;
+    BufferedWriter output = null;
+    
+    
+    
+    BufferedReader intentsInput = null;
+
+    try {
+      String qLine = null;
+
+      input = new BufferedReader(new FileReader(queryFilePath));
+      
+      output = new BufferedWriter(new FileWriter(outputFilePath));
+      
+      if(diversityModel.initialRankingFile != null)
+    	  diversityModel.retrievaInitialRanking();
+      else
+    	  intentsInput = new BufferedReader(new FileReader(diversityModel.intentsFile));
+      
+      
+      
+      //  Each pass of the loop processes one query.
+
+      while ((qLine = input.readLine()) != null) {
+        int d = qLine.indexOf(':');
+
+        if (d < 0) {
+          throw new IllegalArgumentException
+            ("Syntax error:  Missing ':' in query line.");
+        }
+
+        printMemoryUsage(false);
+
+        String qid = qLine.substring(0, d);
+        String query = qLine.substring(d + 1);
+
+        System.out.println("Query " + qLine);
+        
+        if(intentsInput == null){
+        	Map<String, ArrayList> doc2scores = diversityModel.getScoresForQuery(qid);
+        	Map<String, ArrayList> normalized = diversityModel.normalize(doc2scores);
+        	int intentCnt = 0;
+        	for(String doc: normalized.keySet()){
+        		intentCnt = normalized.get(doc).size() - 1;
+        		break;
+        	}
+        	LiteScoreList res = diversityModel.rerank(normalized,intentCnt);
+        }
+        else{
+        	ScoreList r = null;
+            r = processQuery(query, model);
+        }
+        
+       
+        
+        
+        
+        if (res != null) {
+          printResults(qid, r,output, outputLen);
+          System.out.println();
+        }
+      }
+    } catch (IOException ex) {
+      ex.printStackTrace();
+    } finally {
+      input.close();
+      output.close();
     }
   }
 

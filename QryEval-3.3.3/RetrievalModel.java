@@ -15,5 +15,5 @@ public abstract class RetrievalModel {
    *  @return The name of the default query operator.
    */
   public abstract String defaultQrySopName ();
-
+  	
 }
