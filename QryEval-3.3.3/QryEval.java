@@ -699,8 +699,8 @@ public class QryEval {
             	String intentQ = intentQList.get(k);
             	ScoreList intentR = processQuery(intentQ, model);
             	intentR.sortExternal();
-            	for(int i = 0; i < r.size() && i <  upperBound; ++i){
-                	String exId = Idx.getExternalDocid(r.getDocid(i));
+            	for(int i = 0; i < intentR.size() && i <  upperBound; ++i){
+                	String exId = Idx.getExternalDocid(intentR.getDocid(i));
                 	if(!docScores.containsKey(exId))
                 		continue;
                 	int size = docScores.get(exId).size();
