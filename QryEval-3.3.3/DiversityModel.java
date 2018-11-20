@@ -80,7 +80,7 @@ public abstract class DiversityModel {
 		    docScores.get(externalDocId).add(score); 
 		}
 		for(String doc: docScores.keySet()){
-			if(docScores.get(doc).size() < curIntent + 1){
+			while(docScores.get(doc).size() < curIntent + 1){
 				docScores.get(doc).add(0.0);
 			}
 		}

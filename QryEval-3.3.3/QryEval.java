@@ -620,6 +620,8 @@ public class QryEval {
     
     
     BufferedReader intentsInput = null;
+    
+    Map<String,ArrayList> query2intentQs = new HashMap<String,ArrayList>();
 
     try {
       String qLine = null;
@@ -630,8 +632,20 @@ public class QryEval {
       
       if(diversityModel.initialRankingFile != null)
     	  diversityModel.retrievaInitialRanking();
-      else
+      else{
     	  intentsInput = new BufferedReader(new FileReader(diversityModel.intentsFile));
+    	  String intentLine = null;
+      	  while ((intentLine = intentsInput.readLine()) != null) {
+      		 int d1 = intentLine.indexOf('.');
+      		 int d2 = intentLine.indexOf(':');
+      		 String qid = intentLine.substring(0, d1);
+      		 String query = intentLine.substring(d2+1);
+      		 if(!query2intentQs.containsKey(qid)){
+      			 query2intentQs.put(qid, new ArrayList<String>());
+      		 }
+      		 query2intentQs.get(qid).add(query);
+      	  }
+      }
       
       
       
@@ -652,6 +666,8 @@ public class QryEval {
 
         System.out.println("Query " + qLine);
         
+        LiteScoreList res = null;
+        
         if(intentsInput == null){
         	Map<String, ArrayList> doc2scores = diversityModel.getScoresForQuery(qid);
         	Map<String, ArrayList> normalized = diversityModel.normalize(doc2scores);
@@ -660,11 +676,44 @@ public class QryEval {
         		intentCnt = normalized.get(doc).size() - 1;
         		break;
         	}
-        	LiteScoreList res = diversityModel.rerank(normalized,intentCnt);
+        	res = diversityModel.rerank(normalized,intentCnt);
         }
         else{
+        	Map<String,ArrayList> docScores = new HashMap<String, ArrayList>();
         	ScoreList r = null;
             r = processQuery(query, model);
+            r.sortExternal();
+            int upperBound = diversityModel.maxInputRankingsLength;
+            for(int i = 0; i < r.size() && i <  upperBound; ++i){
+            	String exId = Idx.getExternalDocid(r.getDocid(i));
+            	docScores.put(exId, new ArrayList<String> ());
+            	docScores.get(exId).add(r.getDocidScore(i));
+            }
+            ArrayList<String> intentQList = query2intentQs.get(qid);
+            for(int k = 0; k < intentQList.size(); ++k){
+            	String intentQ = intentQList.get(k);
+            	ScoreList intentR = processQuery(intentQ, model);
+            	intentR.sortExternal();
+            	for(int i = 0; i < r.size() && i <  upperBound; ++i){
+                	String exId = Idx.getExternalDocid(r.getDocid(i));
+                	if(!docScores.containsKey(exId))
+                		continue;
+                	int size = docScores.get(exId).size();
+                	while(size < k + 1){
+                		docScores.get(exId).add(0.0);
+                		size++;
+                	}
+                	docScores.get(exId).add(intentR.getDocidScore(i));
+                }
+            }
+            int intentCnt = intentQList.size();
+            for(String doc: docScores.keySet()){
+    			while(docScores.get(doc).size() < intentCnt + 1){
+    				docScores.get(doc).add(0.0);
+    			}
+    		}
+            Map<String, ArrayList> normalized = diversityModel.normalize(docScores);
+            res = diversityModel.rerank(normalized,intentCnt);
         }
         
        
@@ -672,7 +721,7 @@ public class QryEval {
         
         
         if (res != null) {
-          printResults(qid, r,output, outputLen);
+          litePrintResults(qid, res,output, outputLen);
           System.out.println();
         }
       }
@@ -716,6 +765,22 @@ public class QryEval {
         }
     }
   }
+  
+  static void litePrintResults(String queryId, LiteScoreList result, BufferedWriter outputWriter, int outputLen) throws IOException {
+	    String outputMsg = queryId + " Q0 dummy 1 0 run-1";
+	    if (result.size() < 1) {
+	        System.out.println(outputMsg);
+	        outputWriter.write(outputMsg + "\n");
+	    } 
+	    else {
+	        for (int i = 0; i < result.size() && i < outputLen; i++) {
+	            outputMsg = queryId + " Q0 " + result.getExId(i) + " " 
+	                    + (i+1) + " " + result.getDocidScore(i) + " run-1";
+	            System.out.println(outputMsg);
+	            outputWriter.write(outputMsg + "\n");
+	        }
+	    }
+	  }
 
   /**
    *  Read the specified parameter file, and confirm that the required

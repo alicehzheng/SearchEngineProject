@@ -38,6 +38,9 @@ public class LiteScoreList {
     scores.add(new ScoreListEntry(externalid, score));
   }
 
+  public String getExId(int n){
+	  return this.scores.get(n).externalId;
+  }
 
   /**
    *  Get the score of the n'th entry.
