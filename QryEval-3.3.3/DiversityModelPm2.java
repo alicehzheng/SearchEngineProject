@@ -74,7 +74,7 @@ public class DiversityModelPm2 extends DiversityModel {
 			}
 			docCnt++;
 		}
-		
+		r.sortExternal();
 		return r;
 	}
 

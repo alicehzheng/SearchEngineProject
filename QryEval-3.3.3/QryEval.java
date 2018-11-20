@@ -66,7 +66,9 @@ public class QryEval {
     Idx.open (parameters.get ("indexPath"));
     
     // Added on 11/04/18 by @alicehzheng: taking LeToR into consideration (training)
-    boolean needLeToR = (parameters.get ("retrievalAlgorithm").toLowerCase()).equals("letor");
+    boolean needLeToR = false;
+    if(parameters.containsKey("retrievalAlgorithm"))
+    	needLeToR = (parameters.get ("retrievalAlgorithm").toLowerCase()).equals("letor");
     LeToR letor = null;
     if(needLeToR){
     	System.out.println("Learning To Rank");
@@ -76,7 +78,9 @@ public class QryEval {
     	
     	
   
-    RetrievalModel model = initializeRetrievalModel (parameters);
+    RetrievalModel model = null;
+    if(parameters.containsKey("retrievalAlgorithm"))
+    	model = initializeRetrievalModel (parameters);
     
     QryExpansionModel queryExpansion = initializeQryExpansionModel(parameters);
     
@@ -91,7 +95,7 @@ public class QryEval {
     if(diversitymodel == null)
     	processQueryFile(parameters.get("queryFilePath"), parameters.get("trecEvalOutputPath"), Integer.parseInt(parameters.get("trecEvalOutputLength")),model,queryExpansion, letor);
     else
-    	processQueryFileDiversity(parameters.get("queryFilePath"), parameters.get("trecEvalOutputPath"), Integer.parseInt(parameters.get("trecEvalOutputLength")),model,diversitymodel);
+    	processQueryFileDiversity(parameters.get("queryFilePath"), parameters.get("trecEvalOutputPath"),model,diversitymodel);
     
    
     
@@ -254,7 +258,7 @@ public class QryEval {
     if(parameters.containsKey("diversity:intentsFile"))
     	intentsFile = parameters.get("diversity:intentsFile");
     String algorithm = (parameters.get("diversity:algorithm")).toLowerCase();
-    if(algorithm == "xquad")
+    if(algorithm.equals("xquad"))
     	model = new DiversityModelXquad(initialRankingFile,maxinputrankingslength,maxresultrankinglength,intentsFile,lambda);
     else
     	model = new DiversityModelPm2(initialRankingFile,maxinputrankingslength,maxresultrankinglength,intentsFile,lambda);
@@ -616,7 +620,7 @@ public class QryEval {
    *  Process the query file with Diversification
    */
  
-  static void processQueryFileDiversity(String queryFilePath, String outputFilePath, int outputLen, RetrievalModel model, DiversityModel diversityModel)
+  static void processQueryFileDiversity(String queryFilePath, String outputFilePath, RetrievalModel model, DiversityModel diversityModel)
       throws IOException {
 
     BufferedReader input = null;
@@ -819,8 +823,9 @@ public class QryEval {
     if (! (parameters.containsKey ("indexPath") &&
            parameters.containsKey ("queryFilePath") &&
            parameters.containsKey ("trecEvalOutputPath") &&
-           parameters.containsKey("trecEvalOutputLength") && 
-           parameters.containsKey ("retrievalAlgorithm"))) {
+           (parameters.containsKey("trecEvalOutputLength") || parameters.containsKey("diversity:maxResultRankingLength"))
+        		   && 
+           (parameters.containsKey ("retrievalAlgorithm") || parameters.containsKey("diversity")))) {
       throw new IllegalArgumentException
         ("Required parameters were missing from the parameter file.");
     }
