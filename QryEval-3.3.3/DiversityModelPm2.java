@@ -58,7 +58,7 @@ public class DiversityModelPm2 extends DiversityModel {
 						maxScore = curScore;
 					}
 				}
-				r.add(nextDoc, maxScore);
+				r.add(nextDoc, maxScore * 10e-6);
 				doc2scores.remove(nextDoc);
 			}
 			else{

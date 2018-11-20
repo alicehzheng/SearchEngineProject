@@ -42,20 +42,37 @@ public abstract class DiversityModel {
 			String[] parsed = line.split("\\s+");
 			String curQid = parsed[0];
 			int dotIdx = curQid.indexOf('.');
-			if(prevQid != null && dotIdx < 0 && curQid != prevQid){
+			
+			//System.out.println(dotIdx);
+			if(prevQid != null && dotIdx < 0  && !curQid.equals(prevQid)){
+				//System.out.println(prevQid);
+				//System.out.println(curQid);
 				for(String doc: docScores.keySet()){
 					while(docScores.get(doc).size() < curIntent + 1){
 						docScores.get(doc).add(0.0);
 					}
 				}
+				/**
+				for(String doc: docScores.keySet()){
+					System.out.println(doc + "->");
+					ArrayList<Double> sList = docScores.get(doc);
+					for(Double s: sList){
+						System.out.println(s);
+					}
+				}
+				**/
 				this.query2docScores.put(prevQid, docScores);
 				docScores = new HashMap<String, ArrayList>();
 				scoreCnt = 0;
+				curIntent = 0;
 			}
 			if(dotIdx > 0){
-				curQid = curQid.substring(0, dotIdx);
-				curIntent = Integer.parseInt(curQid.substring(dotIdx+1));
+				String tmp = curQid;
+				curQid = tmp.substring(0, dotIdx);
+				curIntent = Integer.parseInt(tmp.substring(dotIdx+1));
+				
 			}
+			//System.out.println(curQid + " " + curIntent);
 			
 			if(curIntent != prevIntent){
 				scoreCnt = 0;
@@ -68,23 +85,41 @@ public abstract class DiversityModel {
 			String externalDocId = parsed[2];
 		    Double score = Double.valueOf(parsed[4]);
 		    if (!docScores.containsKey(externalDocId)){
+		    	//System.out.println("flag1");
 		    	if(curIntent > 0)
 		    		continue;
+		    	//System.out.println("flag2");
 		    	docScores.put(externalDocId, new ArrayList<Double>());
 		    }
 		    int size = docScores.get(externalDocId).size();
 		    while(size < curIntent){
+		    	//System.out.println("flag3");
 		    	docScores.get(externalDocId).add(0.0);
 		    	size++;
 		    }
 		    docScores.get(externalDocId).add(score); 
+		    //System.out.println("flag4");
 		}
 		for(String doc: docScores.keySet()){
-			while(docScores.get(doc).size() < curIntent + 1){
+			//System.out.println("flag5");
+			while(docScores.get(doc).size() < prevIntent + 1){
 				docScores.get(doc).add(0.0);
 			}
 		}
+		
+		/**
+		for(String doc: docScores.keySet()){
+			
+			System.out.println(doc + "->");
+			ArrayList<Double> sList = docScores.get(doc);
+			for(Double s: sList){
+				System.out.println(s);
+			}
+		}
+		**/
 		this.query2docScores.put(prevQid, docScores);
+		for(String qid: query2docScores.keySet())
+			System.out.println(qid + ":" + query2docScores.get(qid).size());
 		return true;
 	}
 	
