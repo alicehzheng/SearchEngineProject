@@ -82,13 +82,16 @@ public class QryEval {
     
     DiversityModel diversitymodel = initializeDiversityModel(parameters);
     
+    
+    
     // Modified on 09/16/18 by @alicehzheng: added two more parameters
     // Modified on 11/05/18 by @alicehzheng: taking LeToR into consideration (reranking)
     // Modified on 11/19/18 by @alicehzheng: taking diversity into consideration
     //  Perform experiments.
-    
-    processQueryFile(parameters.get("queryFilePath"), parameters.get("trecEvalOutputPath"), Integer.parseInt(parameters.get("trecEvalOutputLength")),model,queryExpansion, letor);
-
+    if(diversitymodel == null)
+    	processQueryFile(parameters.get("queryFilePath"), parameters.get("trecEvalOutputPath"), Integer.parseInt(parameters.get("trecEvalOutputLength")),model,queryExpansion, letor);
+    else
+    	processQueryFileDiversity(parameters.get("queryFilePath"), parameters.get("trecEvalOutputPath"), Integer.parseInt(parameters.get("trecEvalOutputLength")),model,diversitymodel);
     
    
     
@@ -239,7 +242,7 @@ public class QryEval {
     if(!parameters.containsKey("diversity") || parameters.get("diversity") == "false")
     	return model;
     
-    if(!parameters.containsKey("diversity:maxInputRankingsLength") || !parameters.containsKey("diversity:maxResultRankingLength") || !parameters.containsKey("diversity:algorithm") || !parameters.containsKey("diversity:intentsFile") || !parameters.containsKey("diversity:lambda") )
+    if(!parameters.containsKey("diversity:maxInputRankingsLength") || !parameters.containsKey("diversity:maxResultRankingLength") || !parameters.containsKey("diversity:algorithm") || !parameters.containsKey("diversity:lambda") )
     	throw new IllegalArgumentException("Not Enought Parameters for Diversification ");  
     int maxinputrankingslength = Integer.parseInt(parameters.get("diversity:maxInputRankingsLength"));
     int maxresultrankinglength = Integer.parseInt(parameters.get("diversity:maxResultRankingLength"));
@@ -247,7 +250,9 @@ public class QryEval {
     String initialRankingFile = null;
     if(parameters.containsKey("diversity:initialRankingFile"))
     	initialRankingFile = parameters.get("diversity:initialRankingFile");
-    String intentsFile = parameters.get("diversity:intentsFile");
+    String intentsFile = null;
+    if(parameters.containsKey("diversity:intentsFile"))
+    	intentsFile = parameters.get("diversity:intentsFile");
     String algorithm = (parameters.get("diversity:algorithm")).toLowerCase();
     if(algorithm == "xquad")
     	model = new DiversityModelXquad(initialRankingFile,maxinputrankingslength,maxresultrankinglength,intentsFile,lambda);
@@ -721,7 +726,7 @@ public class QryEval {
         
         
         if (res != null) {
-          litePrintResults(qid, res,output, outputLen);
+          litePrintResults(qid, res,output);
           System.out.println();
         }
       }
@@ -766,14 +771,14 @@ public class QryEval {
     }
   }
   
-  static void litePrintResults(String queryId, LiteScoreList result, BufferedWriter outputWriter, int outputLen) throws IOException {
+  static void litePrintResults(String queryId, LiteScoreList result, BufferedWriter outputWriter) throws IOException {
 	    String outputMsg = queryId + " Q0 dummy 1 0 run-1";
 	    if (result.size() < 1) {
 	        System.out.println(outputMsg);
 	        outputWriter.write(outputMsg + "\n");
 	    } 
 	    else {
-	        for (int i = 0; i < result.size() && i < outputLen; i++) {
+	        for (int i = 0; i < result.size(); i++) {
 	            outputMsg = queryId + " Q0 " + result.getExId(i) + " " 
 	                    + (i+1) + " " + result.getDocidScore(i) + " run-1";
 	            System.out.println(outputMsg);

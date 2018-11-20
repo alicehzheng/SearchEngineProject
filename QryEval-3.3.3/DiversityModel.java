@@ -44,7 +44,7 @@ public abstract class DiversityModel {
 			int dotIdx = curQid.indexOf('.');
 			if(prevQid != null && dotIdx < 0 && curQid != prevQid){
 				for(String doc: docScores.keySet()){
-					if(docScores.get(doc).size() < curIntent + 1){
+					while(docScores.get(doc).size() < curIntent + 1){
 						docScores.get(doc).add(0.0);
 					}
 				}
@@ -74,7 +74,7 @@ public abstract class DiversityModel {
 		    }
 		    int size = docScores.get(externalDocId).size();
 		    while(size < curIntent){
-		    	docScores.get(externalDocId).add(0);
+		    	docScores.get(externalDocId).add(0.0);
 		    	size++;
 		    }
 		    docScores.get(externalDocId).add(score); 

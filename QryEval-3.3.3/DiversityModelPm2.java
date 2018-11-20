@@ -22,7 +22,7 @@ public class DiversityModelPm2 extends DiversityModel {
 			coverList.add(0.0);
 			priList.add(0.0);
 		}
-		while(docCnt < maxResultRankingLength){
+		while(docCnt < maxResultRankingLength && !doc2scores.isEmpty()){
 			String nextDoc = null;
 			Double maxScore = 0.0;
 			int nextIntent = 1;
@@ -49,6 +49,7 @@ public class DiversityModelPm2 extends DiversityModel {
 				}
 			}
 			if(maxScore == 0.0){
+				nextDoc = null;
 				for(String doc: doc2scores.keySet()){
 					ArrayList<Double> scores = doc2scores.get(doc);
 					Double curScore = scores.get(0);

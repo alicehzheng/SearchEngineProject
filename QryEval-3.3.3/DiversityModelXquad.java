@@ -18,7 +18,7 @@ public class DiversityModelXquad extends DiversityModel {
 		ArrayList<Double> penaltyList = new ArrayList<Double>();
 		for(int i = 0; i <= intentCnt; ++i) // index starts at 1 !!!
 			penaltyList.add(1.0);
-		while(docCnt < maxResultRankingLength){
+		while(docCnt < maxResultRankingLength && !doc2scores.isEmpty()){
 			String nextDoc = null;
 			Double maxScore = 0.0;
 			for(String doc: doc2scores.keySet()){
